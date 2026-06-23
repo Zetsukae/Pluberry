@@ -42,7 +42,7 @@ function updateDownloadLinks() {
         url = DOWNLOAD_URLS.linux;
         message = "Download for Linux";
     } else if (['macOS', 'Android', 'iOS'].includes(os)) {
-        message = `Not avaible on ${os}`;
+        message = `Not available on ${os}`;
         available = false;
     }
 
