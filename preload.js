@@ -33,7 +33,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
                                 showContextMenu: (menuItems) => ipcRenderer.invoke("show-context-menu", menuItems),
 
                                 // --- BRIDGE SYNC (Données du site) ---
-                                syncData: (payload) => ipcRenderer.send("bridge-sync-data", payload)
+                                syncData: (payload) => ipcRenderer.send("bridge-sync-data", payload),
+
+                                // --- AUTH & SAUVEGARDE (Supabase) ---
+                                authSignInWithGitHub: () => ipcRenderer.invoke("supabase-sign-in-github"),
+                                authSignInWithDiscord: () => ipcRenderer.invoke("supabase-sign-in-discord"),
+                                authSignOut: () => ipcRenderer.invoke("supabase-sign-out"),
+                                authGetUser: () => ipcRenderer.invoke("supabase-get-user"),
+                                authIsUserLoggedIn: () => ipcRenderer.invoke("supabase-is-user-logged-in"),
+                                saveSource: (userId, source) => ipcRenderer.invoke("supabase-save-source", userId, source),
+                                loadSources: (userId) => ipcRenderer.invoke("supabase-load-sources", userId)
 });
 
 // Écouteur pour le stockage local (Bridge)

@@ -11,6 +11,7 @@
       --accent-color: #dc2626; --blue-link: #58a6ff; --green-btn: #238636;
       --green-hover: #2ea043; --warning-bg: rgba(210, 153, 34, 0.15);
       --warning-border: rgba(210, 153, 34, 0.4); --warning-text: #e3b341;
+      --success-text: #3fb950;
     }
     * { box-sizing: border-box; }
     ::-webkit-scrollbar { display: none; }
@@ -78,6 +79,7 @@
     }
     .btn-primary { background-color: var(--green-btn); color: #ffffff; }
     .btn-primary:hover { background-color: var(--green-hover); }
+    .btn-primary:disabled { background-color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
     .btn-secondary { background-color: var(--bg-element); color: var(--text-main); border: 1px solid var(--border-color); }
     .btn-secondary:hover { background-color: #30363d; border-color: #8b949e; }
     .danger-zone { margin-top: 40px; border: 1px solid rgba(248, 81, 73, 0.4); border-radius: 6px; padding: 16px; }
@@ -101,10 +103,59 @@
     .about-links button { min-width: 80px; }
     .heart { display: inline-block; animation: beat 1.5s infinite; }
     @keyframes beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+
+    /* Modal styles */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+    #emailVerifyModal .modal-content { border-left: 4px solid var(--warning-border); background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(210,153,34,0.05) 100%); }
+    .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-main); }
+    .modal-input { width: 100%; padding: 10px 12px; margin-bottom: 12px; background-color: var(--bg-canvas); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); font-size: 14px; }
+    .modal-input:focus { border-color: var(--blue-link); outline: none; }
+    .modal-buttons { display: flex; gap: 10px; }
+    .modal-buttons button { flex: 1; padding: 8px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: 0.2s; }
+    .modal-btn-confirm { background-color: var(--green-btn); color: white; }
+    .modal-btn-confirm:hover { background-color: var(--green-hover); }
+    .modal-btn-cancel { background-color: var(--bg-element); color: var(--text-main); border: 1px solid var(--border-color); }
+    .modal-btn-cancel:hover { background-color: #30363d; }
   </style>
 </head>
 <body>
   <div class="title-bar"><span data-i18n="title">Paramètres</span><button class="close-win-btn" id="btnClose">✕</button></div>
+
+  <!-- MODALE AUTH SUPABASE (OAuth) -->
+  <div id="authModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-title">Se connecter / S'inscrire</div>
+      <div style="color: var(--text-muted); margin-bottom: 16px; font-size: 13px;">
+        <p>Choisissez un provider pour continuer :</p>
+      </div>
+      <div class="modal-buttons" style="flex-direction: column; gap: 12px;">
+        <button id="btnGitHubLogin" class="modal-btn-confirm" style="background-color: #238636; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          🐙 Se connecter avec GitHub
+        </button>
+        <button id="btnDiscordLogin" class="modal-btn-confirm" style="background-color: #5865F2; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          💜 Se connecter avec Discord
+        </button>
+        <button id="modalCancel" class="modal-btn-cancel" style="width: 100%;">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE EMAIL VERIFICATION (ancien, peut être supprimé plus tard) -->
+  <div id="emailVerifyModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-title" style="color: var(--success-text);">✅ Connecté !</div>
+      <div style="color: var(--text-main); margin-bottom: 16px; line-height: 1.6;">
+        <p>Vous êtes maintenant connecté avec :</p>
+        <p style="font-weight: 600; color: var(--blue-link);" id="verifyEmail"></p>
+      </div>
+      <div class="modal-buttons">
+        <button id="btnVerifyOk" class="modal-btn-confirm" style="width: 100%;">OK</button>
+      </div>
+    </div>
+  </div>
+
   <div class="main-container">
     <div class="sidebar">
       <div class="sidebar-item active" data-section="general" data-i18n="menuGeneral">Général</div>
@@ -115,6 +166,24 @@
 
       <div id="general" class="section active">
         <h2 data-i18n="menuGeneral">Général</h2>
+
+        <!-- SUPABASE AUTH SECTION -->
+        <div class="settings-box">
+          <label data-i18n="supabaseSignIn">Se connecter</label>
+          <span class="sub-label">Synchronisez vos sources avec GitHub ou Discord</span>
+          <div id="supabaseAuthContainer" style="display: flex; gap: 10px; margin-bottom: 12px;">
+            <button id="btnSupabaseLogin" class="btn-secondary" style="flex: 1;" data-i18n="supabaseSignIn">🔐 Se connecter</button>
+          </div>
+          <div id="supabaseLoggedIn" style="display: none; padding: 12px; background-color: var(--bg-element); border-radius: 6px; border-left: 3px solid var(--green-btn); margin-bottom: 12px;">
+            <div style="font-weight: 600; margin-bottom: 6px; color: var(--green-btn);">✓ Connecté</div>
+            <div id="supabaseUserEmail" style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;"></div>
+            <div style="display: flex; gap: 8px;">
+              <button id="btnSaveNow" class="btn-primary" style="flex: 1; padding: 6px;">💾 Sauvegarder</button>
+              <button id="btnLoadNow" class="btn-primary" style="flex: 1; padding: 6px;">📥 Charger</button>
+              <button id="btnSupabaseLogout" class="btn-danger" style="flex: 1; padding: 6px;" data-i18n="supabaseLogout">Déconnexion</button>
+            </div>
+          </div>
+        </div>
 
         <div class="settings-box">
           <label for="language" data-i18n="langLabel">Langue</label>
@@ -222,6 +291,7 @@
     const translations = {
       fr: {
         title: "Paramètres", menuGeneral: "Général", menuPlugins: "Extensions", menuAbout: "À propos",
+        supabaseSignIn: "Se connecter", supabaseSignUp: "S'inscrire", supabaseLogout: "Déconnexion", supabaseConnected: "Connecté en tant que",
         langLabel: "Langue", langDesc: "Langue de l'interface.",
         sourceTitle: "Source de démarrage", sourceDesc: "Choisissez votre site préféré",
         appearanceTitle: "Apparence", styleImmersive: "Streamix (Immersif)", styleNative: "Natif (Votre OS)", animTitle: "Activer les animations fluides",
@@ -233,6 +303,7 @@
       },
       en: {
         title: "Settings", menuGeneral: "General", menuPlugins: "Plugins", menuAbout: "About",
+        supabaseSignIn: "Sign In", supabaseSignUp: "Sign Up", supabaseLogout: "Sign Out", supabaseConnected: "Signed in as",
         langLabel: "Language", langDesc: "Interface language.",
         sourceTitle: "Startup Source", sourceDesc: "Choisissez votre site préféré",
         appearanceTitle: "Appearance", styleImmersive: "Streamix (Immersive)", styleNative: "Native (Your OS)", animTitle: "Enable smooth animations",
@@ -244,6 +315,7 @@
       },
       es: {
         title: "Ajustes", menuGeneral: "General", menuPlugins: "Plugins", menuAbout: "Acerca de",
+        supabaseSignIn: "Iniciar sesión", supabaseSignUp: "Registrarse", supabaseLogout: "Cerrar sesión", supabaseConnected: "Conectado como",
         langLabel: "Idioma", langDesc: "Idioma de la interfaz.",
         sourceTitle: "Fuente de inicio", sourceDesc: "Choisissez votre site préféré",
         appearanceTitle: "Apariencia", styleImmersive: "Streamix (Inmersivo)", styleNative: "Nativo (Tu SO)", animTitle: "Activar animaciones fluidas",
@@ -255,6 +327,7 @@
       },
       de: {
         title: "Einstellungen", menuGeneral: "Allgemein", menuPlugins: "Erweiterungen", menuAbout: "Über",
+        supabaseSignIn: "Anmelden", supabaseSignUp: "Registrieren", supabaseLogout: "Abmelden", supabaseConnected: "Angemeldet als",
         langLabel: "Sprache", langDesc: "Sprache der Benutzeroberfläche.",
         sourceTitle: "Startquelle", sourceDesc: "Gültige GitHub Pages URL (<strong>.github.io/</strong>).",
         appearanceTitle: "Erscheinungsbild", styleImmersive: "Streamix (Immersiv)", styleNative: "Nativ (Ihr OS)", animTitle: "Flüssige Animationen",
@@ -266,6 +339,7 @@
       },
       ja: {
         title: "設定", menuGeneral: "一般", menuPlugins: "プラグイン", menuAbout: "概要",
+        supabaseSignIn: "ログイン", supabaseSignUp: "登録", supabaseLogout: "ログアウト", supabaseConnected: "ログイン中",
         langLabel: "言語", langDesc: "インターフェース言語。",
         sourceTitle: "起動ソース", sourceDesc: "有効なGitHub Pages URL (<strong>.github.io/</strong>)。",
         appearanceTitle: "外観", styleImmersive: "Streamix (没入型)", styleNative: "ネイティブ (OS)", animTitle: "滑らかなアニメーション",
@@ -613,7 +687,263 @@
           }
         }
       }
+
+      // --- SUPABASE AUTH HANDLERS ---
+      const authModal = document.getElementById('authModal');
+      const emailVerifyModal = document.getElementById('emailVerifyModal');
+      const modalCancel = document.getElementById('modalCancel');
+      const btnVerifyOk = document.getElementById('btnVerifyOk');
+
+      console.log('🔐 Supabase handlers initialized');
+
+      // Check initial auth state
+      async function updateSupabaseAuthUI() {
+        try {
+          const user = await window.electronAPI.authGetUser();
+          const authContainer = document.getElementById('supabaseAuthContainer');
+          const loggedInDiv = document.getElementById('supabaseLoggedIn');
+          
+          if (user?.data?.user) {
+            authContainer.style.display = 'none';
+            loggedInDiv.style.display = 'block';
+            document.getElementById('supabaseUserEmail').textContent = `${translations[langSelect.value]?.supabaseConnected || 'Connecté en tant que'} ${user.data.user.email}`;
+            
+            // Load sources on login (OAuth users don't need email verification)
+            await loadSupabaseSources(user.data.user.id);
+            
+            // Setup auto-sync (every 25 minutes)
+            if (!window.supabaseSyncInterval) {
+              window.supabaseSyncInterval = setInterval(() => {
+                saveSupabaseSources(user.data.user.id);
+              }, 25 * 60 * 1000);
+            }
+          } else {
+            authContainer.style.display = 'flex';
+            loggedInDiv.style.display = 'none';
+            if (window.supabaseSyncInterval) {
+              clearInterval(window.supabaseSyncInterval);
+              window.supabaseSyncInterval = null;
+            }
+          }
+        } catch (e) {
+          console.error('Supabase auth check error:', e);
+        }
+      }
+
+      async function loadSupabaseSources(userId) {
+        try {
+          const result = await window.electronAPI.loadSources(userId);
+          if (result.error) {
+            console.error('Load sources error:', result.error);
+            return;
+          }
+          if (result.data && result.data.length > 0) {
+            console.log('Loaded sources from Supabase:', result.data);
+            // Store locally for access in the main app
+            if (window.electronAPI.getPreferences) {
+              const prefs = await window.electronAPI.getPreferences();
+              if (!prefs.supabaseSources) prefs.supabaseSources = [];
+              prefs.supabaseSources = result.data.map(s => s.data);
+              await window.electronAPI.saveConfig(prefs);
+            }
+          }
+        } catch (e) {
+          console.error('Load sources error:', e);
+        }
+      }
+
+      async function saveSupabaseSources(userId) {
+        try {
+          const prefs = await window.electronAPI.getPreferences();
+          const customUrls = prefs.customUrls || [];
+          
+          // Save each source
+          for (const url of customUrls) {
+            await window.electronAPI.saveSource(userId, { 
+              name: url, 
+              data: url,
+              timestamp: new Date().toISOString()
+            });
+          }
+          console.log('Supabase sync completed at', new Date().toLocaleString());
+        } catch (e) {
+          console.error('Save sources error:', e);
+        }
+      }
+
+      // Show modal for OAuth
+      document.getElementById('btnSupabaseLogin')?.addEventListener('click', () => {
+        console.log('📝 Login button clicked');
+        authModal.classList.add('active');
+        console.log('✅ Modal opened');
+      });
+
+      // GitHub OAuth
+      document.getElementById('btnGitHubLogin')?.addEventListener('click', async () => {
+        try {
+          console.log('🔑 GitHub OAuth starting...');
+          const result = await window.electronAPI.authSignInWithGitHub();
+          console.log('✅ GitHub OAuth result:', result);
+          if (result.error) {
+            alert(`Erreur: ${result.error.message}`);
+          } else {
+            authModal.classList.remove('active');
+            alert('Redirection vers GitHub...');
+            updateSupabaseAuthUI();
+          }
+        } catch (e) {
+          console.error('❌ GitHub OAuth error:', e);
+          alert(`Erreur: ${e.message}`);
+        }
+      });
+
+      // Discord OAuth
+      document.getElementById('btnDiscordLogin')?.addEventListener('click', async () => {
+        try {
+          console.log('🔑 Discord OAuth starting...');
+          const result = await window.electronAPI.authSignInWithDiscord();
+          console.log('✅ Discord OAuth result:', result);
+          if (result.error) {
+            alert(`Erreur: ${result.error.message}`);
+          } else {
+            authModal.classList.remove('active');
+            alert('Redirection vers Discord...');
+            updateSupabaseAuthUI();
+          }
+        } catch (e) {
+          console.error('❌ Discord OAuth error:', e);
+          alert(`Erreur: ${e.message}`);
+        }
+      });
+
+      // Handle modal cancel
+      modalCancel.addEventListener('click', () => {
+        console.log('❌ Cancel button clicked');
+        authModal.classList.remove('active');
+      });
+
+      // Close modal on Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (authModal.classList.contains('active')) {
+            authModal.classList.remove('active');
+          }
+          if (emailVerifyModal.classList.contains('active')) {
+            emailVerifyModal.classList.remove('active');
+          }
+        }
+      });
+
+      // Close modal on outside click
+      authModal.addEventListener('click', (e) => {
+        if (e.target === authModal) {
+          authModal.classList.remove('active');
+        }
+      });
+
+      // Email verify modal handlers
+      btnVerifyOk.addEventListener('click', () => {
+        emailVerifyModal.classList.remove('active');
+      });
+
+      emailVerifyModal.addEventListener('click', (e) => {
+        if (e.target === emailVerifyModal) {
+          emailVerifyModal.classList.remove('active');
+        }
+      });
+
+      // Sign Out
+      document.getElementById('btnSupabaseLogout')?.addEventListener('click', async () => {
+        try {
+          await window.electronAPI.authSignOut();
+          alert('Déconnecté !');
+          updateSupabaseAuthUI();
+        } catch (e) {
+          alert(`Erreur: ${e.message}`);
+        }
+      });
+
+      // Manual Save
+      document.getElementById('btnSaveNow')?.addEventListener('click', async () => {
+        try {
+          const user = await window.electronAPI.authGetUser();
+          if (!user?.data?.user) {
+            alert('Vous devez être connecté');
+            return;
+          }
+          
+          const isVerified = await window.electronAPI.authIsEmailVerified();
+          if (!isVerified) {
+            alert('Veuillez vérifier votre email avant de sauvegarder');
+            return;
+          }
+          
+          console.log('💾 Manual save triggered...');
+          document.getElementById('btnSaveNow').disabled = true;
+          document.getElementById('btnSaveNow').textContent = '⏳ Sauvegarde...';
+          
+          await saveSupabaseSources(user.data.user.id);
+          
+          document.getElementById('btnSaveNow').textContent = '✅ Sauvegardé !';
+          setTimeout(() => {
+            document.getElementById('btnSaveNow').disabled = false;
+            document.getElementById('btnSaveNow').textContent = '💾 Sauvegarder';
+          }, 2000);
+        } catch (e) {
+          console.error('Save error:', e);
+          alert(`Erreur: ${e.message}`);
+          document.getElementById('btnSaveNow').disabled = false;
+          document.getElementById('btnSaveNow').textContent = '💾 Sauvegarder';
+        }
+      });
+
+      // Manual Load
+      document.getElementById('btnLoadNow')?.addEventListener('click', async () => {
+        try {
+          const user = await window.electronAPI.authGetUser();
+          if (!user?.data?.user) {
+            alert('Vous devez être connecté');
+            return;
+          }
+          
+          console.log('📥 Manual load triggered...');
+          document.getElementById('btnLoadNow').disabled = true;
+          document.getElementById('btnLoadNow').textContent = '⏳ Chargement...';
+          
+          await loadSupabaseSources(user.data.user.id);
+          
+          document.getElementById('btnLoadNow').textContent = '✅ Chargé !';
+          setTimeout(() => {
+            document.getElementById('btnLoadNow').disabled = false;
+            document.getElementById('btnLoadNow').textContent = '📥 Charger';
+          }, 2000);
+        } catch (e) {
+          console.error('Load error:', e);
+          alert(`Erreur: ${e.message}`);
+          document.getElementById('btnLoadNow').disabled = false;
+          document.getElementById('btnLoadNow').textContent = '📥 Charger';
+        }
+      });
+
+      // Listen for data sync from the main app
+      window.addEventListener('message', async (ev) => {
+        if (ev.data?.type === 'streamix-storage-command' && ev.data?.allData) {
+          try {
+            const user = await window.electronAPI.authGetUser();
+            if (user?.data?.user) {
+              await saveSupabaseSources(user.data.user.id);
+            }
+          } catch (e) {
+            console.error('Auto-sync error:', e);
+          }
+        }
+      });
+
+      // Check auth state on load
+      updateSupabaseAuthUI();
     });
+
+    // Code Supabase sera ajouté à l'intérieur du DOMContentLoaded
   </script>
 </body>
 </html>

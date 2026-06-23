@@ -4,6 +4,18 @@ const fs = require("fs")
 const { locales } = require("./locales")
 const Store = require("electron-store")
 
+// Load .env file
+const envPath = path.join(__dirname, '.env')
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf-8')
+  envContent.split('\n').forEach(line => {
+    const [key, value] = line.split('=')
+    if (key && value) {
+      process.env[key.trim()] = value.trim()
+    }
+  })
+}
+
 // Import du menu clic droit
 const setupContextMenu = require("./contextMenu")
 
@@ -51,6 +63,13 @@ function createWindow() {
 
   // 1. Activation du menu clic droit
   setupContextMenu(mainWindow);
+
+  // 1.5. Ouvrir DevTools avec F12 (pour debug)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || (input.control && input.shift && input.key === 'i')) {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
 
   // 2. CORRECTION GOOGLE 403 & SIGNATURE APP
   let ua = mainWindow.webContents.getUserAgent();
@@ -469,6 +488,9 @@ app.whenReady().then(() => {
     });
     settingsWindow.loadFile(path.join(__dirname, "settings.html"));
     settingsWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12' || (input.control && input.shift && input.key === 'i')) {
+        settingsWindow.webContents.toggleDevTools();
+      }
       if (input.key === 'Escape' && input.type === 'keyDown') settingsWindow.close();
     });
       settingsWindow.once("ready-to-show", () => { settingsWindow.show(); settingsWindow.focus(); });
@@ -476,6 +498,37 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("close-settings", () => { if (settingsWindow) settingsWindow.close(); });
+
+  // --- SUPABASE AUTH & SOURCES ---
+  const supabaseApi = require("./supabase");
+
+  ipcMain.handle("supabase-sign-in-github", async (event) => {
+    return await supabaseApi.signInWithGitHub();
+  });
+
+  ipcMain.handle("supabase-sign-in-discord", async (event) => {
+    return await supabaseApi.signInWithDiscord();
+  });
+
+  ipcMain.handle("supabase-sign-out", async (event) => {
+    return await supabaseApi.signOut();
+  });
+
+  ipcMain.handle("supabase-get-user", async (event) => {
+    return await supabaseApi.getUser();
+  });
+
+  ipcMain.handle("supabase-is-user-logged-in", async (event) => {
+    return await supabaseApi.isUserLoggedIn();
+  });
+
+  ipcMain.handle("supabase-save-source", async (event, userId, source) => {
+    return await supabaseApi.saveSource(userId, source);
+  });
+
+  ipcMain.handle("supabase-load-sources", async (event, userId) => {
+    return await supabaseApi.loadSources(userId);
+  });
 });
 
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });

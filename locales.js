@@ -9,6 +9,7 @@ module.exports = {
       settings: {
         title: "Paramètres",
         menuGeneral: "Général", menuPlugins: "Extensions", menuAbout: "À propos",
+        supabaseSignIn: "Se connecter", supabaseSignUp: "S'inscrire", supabaseLogout: "Déconnexion", supabaseConnected: "Connecté en tant que",
         langLabel: "Langue / Language", langDesc: "Langue de l'interface.",
         sourceTitle: "Source de démarrage", sourceDesc: "URL GitHub Pages valide.",
         appearanceTitle: "Apparence", styleImmersive: "Streamix (Immersif)", styleNative: "Natif (Votre OS)", animTitle: "Animations fluides",
@@ -27,6 +28,7 @@ module.exports = {
       settings: {
         title: "Settings",
         menuGeneral: "General", menuPlugins: "Plugins", menuAbout: "About",
+        supabaseSignIn: "Sign In", supabaseSignUp: "Sign Up", supabaseLogout: "Sign Out", supabaseConnected: "Signed in as",
         langLabel: "Language", langDesc: "Interface language.",
         sourceTitle: "Startup Source", sourceDesc: "Valid GitHub Pages URL.",
         appearanceTitle: "Appearance", styleImmersive: "Streamix (Immersive)", styleNative: "Native (Your OS)", animTitle: "Smooth animations",
@@ -45,6 +47,7 @@ module.exports = {
       settings: {
         title: "Ajustes",
         menuGeneral: "General", menuPlugins: "Plugins", menuAbout: "Acerca de",
+        supabaseSignIn: "Iniciar sesión", supabaseSignUp: "Registrarse", supabaseLogout: "Cerrar sesión", supabaseConnected: "Conectado como",
         langLabel: "Idioma", langDesc: "Idioma de la interfaz.",
         sourceTitle: "Fuente de inicio", sourceDesc: "URL GitHub Pages válida.",
         appearanceTitle: "Apariencia", styleImmersive: "Streamix (Inmersivo)", styleNative: "Nativo (Tu SO)", animTitle: "Animaciones fluidas",
@@ -63,6 +66,7 @@ module.exports = {
       settings: {
         title: "Einstellungen",
         menuGeneral: "Allgemein", menuPlugins: "Erweiterungen", menuAbout: "Über",
+        supabaseSignIn: "Anmelden", supabaseSignUp: "Registrieren", supabaseLogout: "Abmelden", supabaseConnected: "Angemeldet als",
         langLabel: "Sprache / Language", langDesc: "Sprache der Benutzeroberfläche.",
         sourceTitle: "Startquelle", sourceDesc: "Gültige GitHub Pages URL.",
         appearanceTitle: "Erscheinungsbild", styleImmersive: "Streamix (Immersiv)", styleNative: "Nativ (Ihr OS)", animTitle: "Flüssige Animationen",
@@ -81,6 +85,7 @@ module.exports = {
       settings: {
         title: "設定",
         menuGeneral: "一般", menuPlugins: "プラグイン", menuAbout: "概要",
+        supabaseSignIn: "ログイン", supabaseSignUp: "登録", supabaseLogout: "ログアウト", supabaseConnected: "ログイン中",
         langLabel: "言語 / Language", langDesc: "インターフェース言語。",
         sourceTitle: "起動ソース", sourceDesc: "有効なGitHub Pages URL。",
         appearanceTitle: "外観", styleImmersive: "Streamix (没入型)", styleNative: "ネイティブ (OS)", animTitle: "滑らかなアニメーション",
