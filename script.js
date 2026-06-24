@@ -1,6 +1,6 @@
 // URLs de téléchargement directs
 const DOWNLOAD_URLS = {
-    windows: "https://github.com/Zetsukae/streamix/releases/download/Streamix-1.2.26-BeyondAdvance/Streamix.Setup.1.2.26.exe",
+    windows: "https://github.com/Zetsukae/streamix/releases/download/Streamix-1.2.26-BeyondAdvance/Streamix.1.2.26.exe",
     linux: "https://github.com/Zetsukae/streamix/releases/download/Streamix-1.2.26-BeyondAdvance/Streamix-1.2.26.AppImage",
     other: "https://github.com/Zetsukae/streamix/releases"
 };
