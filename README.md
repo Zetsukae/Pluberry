@@ -17,7 +17,7 @@ Streamix est disponible pour **Windows** et **Linux**.
 
 | Système | Type | Lien |
 | :--- | :--- | :--- |
-| **Windows** | Installeur `.exe` | Disponible |
+| **Windows** | Installeur `.exe` | Patch en cours |
 | **Linux** | Portable `.AppImage` | Disponible |
 
 > *Les liens de téléchargement de Windows peuvent être ajoutés quelques jours après Linux, regardez souvent l'onglet [Releases].*
