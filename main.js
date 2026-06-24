@@ -3,6 +3,12 @@ const path = require("node:path")
 const fs = require("fs")
 const { locales } = require("./locales")
 const Store = require("electron-store")
+const { loadDotEnv } = require("./env-loader")
+
+loadDotEnv([
+  path.join(__dirname, '.env'),
+  path.join(app?.getPath?.('userData') || __dirname, '.env')
+]);
 
 // Import du menu clic droit
 const setupContextMenu = require("./contextMenu")
@@ -10,7 +16,7 @@ const setupContextMenu = require("./contextMenu")
 const store = new Store({
   defaults: {
     config: {
-      language: "fr",
+      language: "",
       sourceUrl: "",
       windowStyle: "default",
       homeButtonBehavior: "menu",
@@ -18,15 +24,92 @@ const store = new Store({
       animationsEnabled: true
     },
     plugins: [],
+    customUrls: [],
     siteData: {}
   }
 })
 
 let mainWindow
 let settingsWindow = null
+let supabaseApi = null
+let supabaseHandlersRegistered = false
+let unsubscribeAuth = null
+
+async function collectCookiesForSource(sourceUrl) {
+  if (!sourceUrl) return [];
+
+  try {
+    const targetSession = mainWindow?.webContents?.session || session.defaultSession;
+    const cookies = await targetSession.cookies.get({ url: sourceUrl });
+    return cookies.map((cookie) => ({
+      name: cookie.name,
+      value: cookie.value,
+      domain: cookie.domain,
+      path: cookie.path,
+      secure: cookie.secure,
+      httpOnly: cookie.httpOnly,
+      sameSite: cookie.sameSite,
+      session: cookie.session,
+      expirationDate: cookie.expirationDate,
+      sourceUrl
+    }));
+  } catch (error) {
+    console.error("Failed to collect source cookies:", error);
+    return [];
+  }
+}
+
+async function restoreCookiesForSource(sourceUrl, cookies = []) {
+  if (!sourceUrl || !Array.isArray(cookies) || cookies.length === 0) return { restored: 0 };
+
+  try {
+    const targetSession = mainWindow?.webContents?.session || session.defaultSession;
+    let restored = 0;
+
+    for (const cookie of cookies) {
+      try {
+        await targetSession.cookies.set({
+          url: sourceUrl,
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain,
+          path: cookie.path || '/',
+          secure: !!cookie.secure,
+          httpOnly: !!cookie.httpOnly,
+          sameSite: cookie.sameSite || 'no_restriction',
+          expirationDate: cookie.expirationDate,
+          session: cookie.session === true
+        });
+        restored += 1;
+      } catch (cookieError) {
+        console.warn("Failed to restore cookie:", cookie.name, cookieError);
+      }
+    }
+
+    return { restored };
+  } catch (error) {
+    console.error("Failed to restore source cookies:", error);
+    return { restored: 0 };
+  }
+}
+
+function getSystemLanguage() {
+  const raw = app?.getLocale?.() || process.env.LANG || process.env.LANGUAGE || "en";
+  const normalized = String(raw).trim().toLowerCase();
+  const shortCode = normalized.split(/[-_.]/)[0];
+  return ["fr", "en", "es", "de", "ja"].includes(shortCode) ? shortCode : "en";
+}
+
+function syncAppLanguage(language) {
+  const requestedLang = language || store.get("config")?.language;
+  const resolvedLang = requestedLang || getSystemLanguage();
+  process.env.STREAMIX_APP_LANG = resolvedLang;
+  return resolvedLang;
+}
 
 function createWindow() {
   const config = store.get("config")
+  syncAppLanguage(config.language)
   const isWindowsStyle = config.windowStyle === "windows"
 
   mainWindow = new BrowserWindow({
@@ -51,6 +134,13 @@ function createWindow() {
   // 1. Activation du menu clic droit
   setupContextMenu(mainWindow);
 
+  // 1.5. Ouvrir DevTools avec F12 (pour debug)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || (input.control && input.shift && input.key === 'i')) {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
+
   // 2. CORRECTION GOOGLE 403 & SIGNATURE APP
   let ua = mainWindow.webContents.getUserAgent();
   ua = ua.replace(/Electron\/[0-9\.]+\s?/, "");
@@ -58,10 +148,15 @@ function createWindow() {
   const finalUA = `${ua} StreamixApp`;
   mainWindow.webContents.setUserAgent(finalUA);
 
-  // 3. SÉCURITÉ : Key dans les Headers
+  // 3. SÉCURITÉ : Autoriser Google et autres domaines
   if (config.sourceUrl) {
-    const filter = { urls: [config.sourceUrl + "*"] };
+    const filter = { urls: [config.sourceUrl + "*", "https://accounts.google.com/*", "https://www.google.com/*"] };
     session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+      // Allow Google requests
+      if (details.url.includes('google.com') || details.url.includes('accounts.google.com')) {
+        callback({ requestHeaders: details.requestHeaders });
+        return;
+      }
       details.requestHeaders['X-Streamix-Key'] = 'zetsukaedagoat';
       callback({ requestHeaders: details.requestHeaders });
     });
@@ -69,7 +164,8 @@ function createWindow() {
 
   // Démarrage
   const url = config.sourceUrl || "";
-  if (url && (url.includes(".github.io/") || url.includes("anime-sama"))) {
+  const validSites = ["franime.fr", "anime-sama.pw", "mangas-origines.fr"];
+  if (url && validSites.some(site => url.includes(site))) {
     mainWindow.loadURL(url)
   } else {
     loadSetupScreen()
@@ -197,13 +293,27 @@ function createWindow() {
     const config = store.get("config");
     try {
       const targetUrl = new URL(url);
+      const targetHostname = targetUrl.hostname.toLowerCase();
       const sourceUrl = config.sourceUrl ? new URL(config.sourceUrl) : null;
+      const sourceHostname = sourceUrl ? sourceUrl.hostname.toLowerCase() : null;
+      const isExternalOAuthProvider = [
+        "github.com",
+        "www.github.com",
+        "discord.com",
+        "www.discord.com"
+      ].includes(targetHostname);
+
       if (
-        (sourceUrl && targetUrl.hostname.includes(sourceUrl.hostname)) ||
+        (sourceHostname && targetHostname.includes(sourceHostname)) ||
         url.includes("anime-sama") ||
-        url.includes("accounts.google.com")
+        url.includes("accounts.google.com") ||
+        isExternalOAuthProvider
       ) {
-        mainWindow.loadURL(url);
+        if (isExternalOAuthProvider) {
+          shell.openExternal(url);
+        } else {
+          mainWindow.loadURL(url);
+        }
         return { action: "deny" };
       }
     } catch (e) { }
@@ -278,7 +388,85 @@ function injectF1MenuScript(win) {
 
 function loadSetupScreen() { mainWindow.loadFile(path.join(__dirname, "setup.html")); }
 
+function registerSupabaseHandlers() {
+  if (supabaseHandlersRegistered) return;
+
+  try {
+    supabaseApi = require("./supabase");
+  } catch (error) {
+    console.error("Supabase bridge initialization failed:", error);
+    return;
+  }
+
+  ipcMain.handle("supabase-sign-in-github", async () => {
+    return await supabaseApi.signInWithGitHub();
+  });
+
+  ipcMain.handle("supabase-sign-in-discord", async () => {
+    return await supabaseApi.signInWithDiscord();
+  });
+
+  ipcMain.handle("supabase-restore-session", async () => {
+    const result = await supabaseApi.restoreSession();
+    if (result?.data?.session) {
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.webContents.send("supabase-auth-state-changed", { session: result.data.session });
+      }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("supabase-auth-state-changed", { session: result.data.session });
+      }
+    }
+    return result;
+  });
+
+  ipcMain.handle("supabase-sign-out", async () => {
+    return await supabaseApi.signOut();
+  });
+
+  ipcMain.handle("supabase-get-user", async () => {
+    return await supabaseApi.getUser();
+  });
+
+  ipcMain.handle("supabase-is-user-logged-in", async () => {
+    return await supabaseApi.isUserLoggedIn();
+  });
+
+  ipcMain.handle("supabase-save-source", async (event, userId, source) => {
+    return await supabaseApi.saveSource(userId, source);
+  });
+
+  ipcMain.handle("supabase-load-sources", async (event, userId) => {
+    return await supabaseApi.loadSources(userId);
+  });
+
+  ipcMain.handle("collect-source-cookies", async (event, sourceUrl) => {
+    return await collectCookiesForSource(sourceUrl);
+  });
+
+  ipcMain.handle("restore-source-cookies", async (event, sourceUrl, cookies) => {
+    return await restoreCookiesForSource(sourceUrl, cookies);
+  });
+
+  unsubscribeAuth = supabaseApi.onAuthStateChange((event, session) => {
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send("supabase-auth-state-changed", { event, session });
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("supabase-auth-state-changed", { event, session });
+    }
+  });
+
+  app.on("before-quit", () => {
+    if (typeof unsubscribeAuth === "function") {
+      unsubscribeAuth();
+    }
+  });
+
+  supabaseHandlersRegistered = true;
+}
+
 app.whenReady().then(() => {
+  registerSupabaseHandlers();
   createWindow();
   Menu.setApplicationMenu(null);
 
@@ -286,7 +474,37 @@ app.whenReady().then(() => {
   ipcMain.handle("close-window", () => mainWindow.close());
   ipcMain.handle("restart-app", () => { app.relaunch(); app.exit(0); });
   ipcMain.handle("open-external-link", (e, url) => shell.openExternal(url));
-  ipcMain.handle("reset-application", () => { store.clear(); app.relaunch(); app.exit(0); });
+  ipcMain.handle("show-context-menu", (event, menuItems) => {
+    const menu = Menu.buildFromTemplate(menuItems.map(item => ({
+      label: item.label,
+      click: item.click
+    })));
+    menu.popup({ window: BrowserWindow.fromWebContents(event.sender) });
+  });
+  ipcMain.handle("reset-application", async () => {
+    try {
+      if (supabaseApi?.clearPersistedAuth) {
+        supabaseApi.clearPersistedAuth();
+      }
+      if (supabaseApi?.signOut) {
+        await supabaseApi.signOut().catch(() => {});
+      }
+    } catch (error) {
+      console.warn("Reset auth cleanup error:", error);
+    }
+
+    store.clear();
+    store.set("config", {
+      language: "",
+      sourceUrl: "",
+      windowStyle: "default",
+      homeButtonBehavior: "menu",
+      experimentalEnabled: false,
+      animationsEnabled: true
+    });
+    app.relaunch();
+    app.exit(0);
+  });
 
   ipcMain.on("bridge-sync-data", (event, payload) => {
     if ((payload.type === 'init' || payload.type === 'update') && payload.allData) {
@@ -295,9 +513,16 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("save-config", (event, newConfig) => {
-    if (newConfig.sourceUrl && !newConfig.sourceUrl.includes(".github.io/")) {
-      dialog.showErrorBox("Source non autorisée", "Seules les sources hébergées sur GitHub Pages (.github.io/) sont acceptées.");
-      return;
+    // Site selection: map to URLs
+    const siteMap = {
+      "franime": "https://franime.fr/",
+      "anime-sama": "https://anime-sama.pw/",
+      "mangas-origines": "https://mangas-origines.fr/"
+    };
+    
+    // Si sourceUrl n'est pas déjà fourni (pour les URLs custom), le mapper depuis selectedSite
+    if (!newConfig.sourceUrl && newConfig.selectedSite && siteMap[newConfig.selectedSite]) {
+      newConfig.sourceUrl = siteMap[newConfig.selectedSite];
     }
 
     const currentConfig = store.get("config");
@@ -305,6 +530,7 @@ app.whenReady().then(() => {
     (newConfig.windowStyle !== currentConfig.windowStyle) ||
     (newConfig.language !== currentConfig.language);
 
+    syncAppLanguage(newConfig.language || currentConfig.language);
     store.set("config", { ...currentConfig, ...newConfig });
 
     if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.close();
@@ -319,7 +545,26 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("get-preferences", () => store.get("config"));
+  ipcMain.handle("get-current-language", () => syncAppLanguage(store.get("config")?.language));
+  ipcMain.handle("get-app-translations", () => locales);
   ipcMain.handle("get-plugins", () => store.get("plugins"));
+
+  // --- HELPER: Copier plugin dans dossier de l'app (userData) ---
+  const copyPluginToAppFolder = (sourcePath) => {
+    const pluginsDir = path.join(app.getPath('userData'), 'plugins');
+    
+    // Créer le dossier s'il n'existe pas
+    if (!fs.existsSync(pluginsDir)) {
+      fs.mkdirSync(pluginsDir, { recursive: true });
+    }
+    
+    const fileName = path.basename(sourcePath);
+    const destPath = path.join(pluginsDir, fileName);
+    
+    // Copier le fichier
+    fs.copyFileSync(sourcePath, destPath);
+    return destPath;
+  };
 
   // --- SÉLECTION DES PLUGINS AMÉLIORÉE (AUTEUR + GITHUB + VERSION) ---
   ipcMain.handle("select-plugin-file", async () => {
@@ -335,7 +580,16 @@ app.whenReady().then(() => {
 
     if (plugins.find(p => p.path === pPath)) return { success: false, error: "Déjà installé" };
 
-    // DÉTECTION METADATA
+    // Copier le plugin dans le dossier de l'app
+    let appPluginPath;
+    try {
+      appPluginPath = copyPluginToAppFolder(pPath);
+    } catch (e) {
+      console.error("Erreur copie plugin:", e);
+      return { success: false, error: "Erreur lors de la copie du plugin" };
+    }
+
+    // DÉTECTION METADATA à partir du chemin source
     let detectedAuthor = null;
     let detectedGithub = null;
     let detectedVersion = null;
@@ -361,7 +615,7 @@ app.whenReady().then(() => {
 
     const newPlugin = {
       name: path.basename(pPath, '.js'),
-                 path: pPath,
+                 path: appPluginPath,
                  enabled: true,
                  author: detectedAuthor,
                  github: detectedGithub,
@@ -378,6 +632,36 @@ app.whenReady().then(() => {
     let plugins = store.get("plugins", []);
     plugins = plugins.filter(p => p.path !== pPath);
     store.set("plugins", plugins);
+    
+    // Supprimer le fichier du dossier de l'app
+    try {
+      if (fs.existsSync(pPath)) {
+        fs.unlinkSync(pPath);
+      }
+    } catch (err) {
+      console.error("Erreur suppression fichier plugin:", err);
+    }
+    
+    return { success: true };
+  });
+
+  ipcMain.handle("toggle-plugin", (e, pPath) => {
+    let plugins = store.get("plugins", []);
+    const plugin = plugins.find(p => p.path === pPath);
+    if (plugin) {
+      plugin.enabled = !plugin.enabled;
+      store.set("plugins", plugins);
+      return { success: true, enabled: plugin.enabled };
+    }
+    return { success: false };
+  });
+
+  ipcMain.handle("get-custom-urls", () => {
+    return store.get("customUrls", []);
+  });
+
+  ipcMain.handle("save-custom-urls", (event, urls) => {
+    store.set("customUrls", urls);
     return { success: true };
   });
 
@@ -392,6 +676,9 @@ app.whenReady().then(() => {
     });
     settingsWindow.loadFile(path.join(__dirname, "settings.html"));
     settingsWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12' || (input.control && input.shift && input.key === 'i')) {
+        settingsWindow.webContents.toggleDevTools();
+      }
       if (input.key === 'Escape' && input.type === 'keyDown') settingsWindow.close();
     });
       settingsWindow.once("ready-to-show", () => { settingsWindow.show(); settingsWindow.focus(); });
@@ -399,6 +686,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("close-settings", () => { if (settingsWindow) settingsWindow.close(); });
+
 });
 
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });

@@ -5,15 +5,12 @@ const store = new Store();
 
 module.exports = (win) => {
     win.webContents.on('context-menu', (event, params) => {
-        // Récupérer la langue actuelle (par défaut 'fr')
         const config = store.get('config') || {};
         const lang = config.language || 'fr';
-        // Charger les textes, fallback sur 'fr' si la langue n'existe pas
         const t = (locales[lang] || locales.fr).contextMenu;
 
         const menu = new Menu();
 
-        // 1. Liens
         if (params.linkURL) {
             menu.append(new MenuItem({
                 label: t.openLink,
@@ -29,7 +26,6 @@ module.exports = (win) => {
             menu.append(new MenuItem({ type: 'separator' }));
         }
 
-        // 2. Texte sélectionné
         if (params.selectionText) {
             menu.append(new MenuItem({ role: 'copy', label: t.copy }));
             if (params.isEditable) {
@@ -38,14 +34,12 @@ module.exports = (win) => {
             menu.append(new MenuItem({ type: 'separator' }));
         }
 
-        // 3. Zone de texte
         if (params.isEditable) {
             menu.append(new MenuItem({ role: 'paste', label: t.paste }));
             menu.append(new MenuItem({ role: 'selectAll', label: t.selectAll }));
             menu.append(new MenuItem({ type: 'separator' }));
         }
 
-        // 4. Navigation
         if (win.webContents.canGoBack()) {
             menu.append(new MenuItem({
                 label: t.back,

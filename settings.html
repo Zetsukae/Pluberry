@@ -11,6 +11,7 @@
       --accent-color: #dc2626; --blue-link: #58a6ff; --green-btn: #238636;
       --green-hover: #2ea043; --warning-bg: rgba(210, 153, 34, 0.15);
       --warning-border: rgba(210, 153, 34, 0.4); --warning-text: #e3b341;
+      --success-text: #3fb950;
     }
     * { box-sizing: border-box; }
     ::-webkit-scrollbar { display: none; }
@@ -47,8 +48,8 @@
       content: ""; position: absolute; left: 0; top: 15%; height: 70%; width: 3px;
       background-color: #f78166; border-radius: 0 4px 4px 0;
     }
-    .content { flex: 1; padding: 32px; overflow-y: auto; background-color: var(--bg-canvas); }
-    .section { display: none; }
+    .content { flex: 1; padding: 32px; overflow-y: auto; background-color: var(--bg-canvas); min-height: 0; }
+    .section { display: none; min-height: 400px; }
     .section.active { display: block; animation: fade 0.2s ease; }
     @keyframes fade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     h2 { margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 600; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
@@ -78,6 +79,7 @@
     }
     .btn-primary { background-color: var(--green-btn); color: #ffffff; }
     .btn-primary:hover { background-color: var(--green-hover); }
+    .btn-primary:disabled { background-color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
     .btn-secondary { background-color: var(--bg-element); color: var(--text-main); border: 1px solid var(--border-color); }
     .btn-secondary:hover { background-color: #30363d; border-color: #8b949e; }
     .danger-zone { margin-top: 40px; border: 1px solid rgba(248, 81, 73, 0.4); border-radius: 6px; padding: 16px; }
@@ -101,10 +103,55 @@
     .about-links button { min-width: 80px; }
     .heart { display: inline-block; animation: beat 1.5s infinite; }
     @keyframes beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+
+    /* Modal styles */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+    #emailVerifyModal .modal-content { border-left: 4px solid var(--warning-border); background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(210,153,34,0.05) 100%); }
+    .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-main); }
+    .modal-input { width: 100%; padding: 10px 12px; margin-bottom: 12px; background-color: var(--bg-canvas); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); font-size: 14px; }
+    .modal-input:focus { border-color: var(--blue-link); outline: none; }
+    .modal-buttons { display: flex; gap: 10px; }
+    .modal-buttons button { flex: 1; padding: 8px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: 0.2s; }
+    .modal-btn-confirm { background-color: var(--green-btn); color: white; }
+    .modal-btn-confirm:hover { background-color: var(--green-hover); }
+    .modal-btn-cancel { background-color: var(--bg-element); color: var(--text-main); border: 1px solid var(--border-color); }
+    .modal-btn-cancel:hover { background-color: #30363d; }
   </style>
 </head>
 <body>
-  <div class="title-bar"><span data-i18n="title">Paramètres</span><button class="close-win-btn" id="btnClose">✕</button></div>
+  <div class="title-bar"><span data-i18n="title">Paramètres</span><button class="close-win-btn" id="btnClose">x</button></div>
+
+  <div id="authModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-title" data-i18n="connectTitle">Connexion</div>
+      <div style="color: var(--text-muted); margin-bottom: 16px; font-size: 13px;">
+        <p data-i18n="connectSubtitle">Connectez-vous avec Discord pour synchroniser vos sources.</p>
+      </div>
+      <div class="modal-buttons" style="flex-direction: column; gap: 12px;">
+      <button id="btnDiscordLogin" class="modal-btn-confirm" style="background-color: #5865F2; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border: none; border-radius: 6px;">
+        <img src="./assets/login-register/discord-white-icon.svg" style="height: 20px; width: auto;">
+        <span style="color: white; font-size: 16px; font-weight: 600; font-family: sans-serif;" data-i18n="connectWithDiscord">Se connecter avec Discord</span>
+      </button>
+        <button id="modalCancel" class="modal-btn-cancel" style="width: 100%;" data-i18n="btnCancel">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="emailVerifyModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-title" style="color: var(--success-text);" data-i18n="connected">Connecté</div>
+      <div style="color: var(--text-main); margin-bottom: 16px; line-height: 1.6;">
+        <p data-i18n="connectedWith">Vous êtes maintenant connecté avec :</p>
+        <p style="font-weight: 600; color: var(--blue-link);" id="verifyEmail"></p>
+      </div>
+      <div class="modal-buttons">
+        <button id="btnVerifyOk" class="modal-btn-confirm" style="width: 100%;" data-i18n="ok">OK</button>
+      </div>
+    </div>
+  </div>
+
   <div class="main-container">
     <div class="sidebar">
       <div class="sidebar-item active" data-section="general" data-i18n="menuGeneral">Général</div>
@@ -115,6 +162,29 @@
 
       <div id="general" class="section active">
         <h2 data-i18n="menuGeneral">Général</h2>
+
+        <div class="settings-box">
+          <label data-i18n="supabaseSignIn">Connexion</label>
+          <span class="sub-label">Synchronisez vos sources avec Discord</span>
+          <div id="supabaseAuthContainer" style="display: flex; gap: 10px; margin-bottom: 12px;">
+            <button id="btnSupabaseLogin" class="btn-secondary" style="flex: 1;" data-i18n="supabaseSignIn">Se connecter</button>
+          </div>
+          <div id="supabaseLoggedIn" style="display: none; padding: 12px; background-color: var(--bg-element); border-radius: 6px; border-left: 3px solid var(--green-btn); margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <img id="supabaseUserAvatar" alt="avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; display: none; border: 1px solid var(--border-color);" />
+              <div>
+                <div style="font-weight: 600; color: var(--green-btn);" data-i18n="connected">Connecté</div>
+                <div id="supabaseUserName" style="font-size: 13px; color: var(--text-main); font-weight: 600;"></div>
+                <div id="supabaseUserEmail" style="font-size: 12px; color: var(--text-muted);"></div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button id="btnSaveNow" class="btn-primary" style="flex: 1; min-width: 110px; padding: 6px;" data-i18n="testSave">Tester la sauvegarde</button>
+              <button id="btnLoadNow" class="btn-primary" style="flex: 1; min-width: 110px; padding: 6px;" data-i18n="load">Charger</button>
+              <button id="btnSupabaseLogout" class="btn-danger" style="flex: 1; min-width: 110px; padding: 6px;" data-i18n="supabaseLogout">Déconnexion</button>
+            </div>
+          </div>
+        </div>
 
         <div class="settings-box">
           <label for="language" data-i18n="langLabel">Langue</label>
@@ -129,9 +199,32 @@
         </div>
 
         <div class="settings-box">
-          <label for="sourceUrl" data-i18n="sourceTitle">Source</label>
-          <span class="sub-label" data-i18n="sourceDesc">URL GitHub Pages.</span>
-          <input type="text" id="sourceUrl" placeholder="https://username.github.io/source/">
+          <label data-i18n="sourceTitle">Site de streaming</label>
+          <span class="sub-label" data-i18n="sourceDesc">Choisissez votre source préférée</span>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="selectedSite" value="franime">
+              <span data-i18n="sourceFranime">Franime (https://franime.fr/)</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="selectedSite" value="anime-sama">
+              <span data-i18n="sourceAnimeSama">Anime Sama (https://anime-sama.pw/)</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="selectedSite" value="mangas-origines">
+              <span data-i18n="sourceMangasOrigines">Mangas Origines (https://mangas-origines.fr/)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-box">
+          <label data-i18n="customUrlsTitle">URLs Personnalisées</label>
+          <span class="sub-label" data-i18n="customUrlsDesc">Ajoutez vos propres sites de streaming</span>
+          <div style="margin-bottom: 12px;">
+            <input type="text" id="customUrlInput" data-i18n-placeholder="customUrlPlaceholder" placeholder="https://votre-site.com/" style="width: 100%; padding: 8px 12px; background-color: var(--bg-canvas); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); font-size: 13px; box-sizing: border-box; margin-bottom: 8px;">
+            <button id="addCustomUrlBtn" style="width: 100%; padding: 8px; background-color: #21262d; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; cursor: pointer; margin-bottom: 12px;" data-i18n="addCustomUrlBtn">+ Ajouter une URL</button>
+          </div>
+          <div id="customUrlsList" class="radio-group"></div>
         </div>
 
         <div class="settings-box">
@@ -161,7 +254,7 @@
       <div id="plugins" class="section">
         <h2 data-i18n="pluginsTitle">Extensions</h2>
         <div class="warning-box">
-          <div class="warning-title" data-i18n="securityTitle">⚠️ Sécurité</div>
+          <div class="warning-title" data-i18n="securityTitle">Sécurité</div>
           <div data-i18n="securityDesc">Attention code arbitraire.</div>
         </div>
         <div style="margin-bottom: 16px;"><button id="btnAddPlugin" class="btn-secondary" style="width: 100%;" data-i18n="addPluginBtn">Ajouter un plugin</button></div>
@@ -173,12 +266,12 @@
         <div style="text-align: center; padding: 40px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface);">
           <img src="https://i.imgur.com/lv3zp1J.png" alt="Logo" style="width: 64px; margin-bottom: 16px; opacity: 0.8;">
           <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px;">Streamix</div>
-          <div style="color: var(--text-muted); margin-bottom: 16px;">Version 1.0.0</div>
+          <div style="color: var(--text-muted); margin-bottom: 16px;">Version 1.2.26 - Beyond Advance</div>
           <p style="color: var(--text-main); font-size: 14px; margin-bottom: 8px; line-height: 1.6; max-width: 400px; margin-left: auto; margin-right: auto;" data-i18n="desc">
             Description app.
           </p>
           <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 24px;" data-i18n="madeBy">
-             Fait par <span class="heart">❤️</span>, de Zetsukae.
+             Fait avec <span class="heart">💙</span> de Zetsukae &amp; Fans.
           </div>
           <div class="about-links">
             <button id="btnRepo" class="btn-secondary" data-i18n="btnRepo">Repo</button>
@@ -196,76 +289,37 @@
   </div>
 
   <script>
-    const translations = {
-      fr: {
-        title: "Paramètres", menuGeneral: "Général", menuPlugins: "Extensions", menuAbout: "À propos",
-        langLabel: "Langue", langDesc: "Langue de l'interface.",
-        sourceTitle: "Source de démarrage", sourceDesc: "URL d'une source GitHub Pages valide (<strong>.github.io/</strong>).",
-        appearanceTitle: "Apparence", styleImmersive: "Streamix (Immersif)", styleNative: "Natif (Votre OS)", animTitle: "Activer les animations fluides",
-        dangerTitle: "Zone de danger", dangerDesc: "Effacer toutes les données et recommencer.", resetBtn: "Réinitialiser Streamix",
-        pluginsTitle: "Extensions", securityTitle: "⚠️ Risque de sécurité", securityDesc: "Les plugins sont du <strong>code arbitraire</strong> qui s'exécute avec les mêmes droits que l'application. N'ajoutez JAMAIS un plugin dont vous ne connaissez pas l'origine ou le développeur.", addPluginBtn: "Ajouter un plugin (.js)",
-        aboutTitle: "À propos", desc: "Streamix est une application open-source conçue pour centraliser vos sources de streaming.", madeBy: "Fait par <span class='heart'>❤️</span>, de Zetsukae.",
-        btnRepo: "Repo", btnWiki: "Wiki", btnIssues: "Issues", btnCancel: "Annuler", btnSave: "Enregistrer"
-      },
-      en: {
-        title: "Settings", menuGeneral: "General", menuPlugins: "Plugins", menuAbout: "About",
-        langLabel: "Language", langDesc: "Interface language.",
-        sourceTitle: "Startup Source", sourceDesc: "URL of a valid GitHub Pages source (<strong>.github.io/</strong>).",
-        appearanceTitle: "Appearance", styleImmersive: "Streamix (Immersive)", styleNative: "Native (Your OS)", animTitle: "Enable smooth animations",
-        dangerTitle: "Danger Zone", dangerDesc: "Clear all data and restart.", resetBtn: "Reset Streamix",
-        pluginsTitle: "Plugins", securityTitle: "⚠️ Security Risk", securityDesc: "Plugins are <strong>arbitrary code</strong> running with the same rights as the application. NEVER add a plugin unless you trust its origin or developer.", addPluginBtn: "Add a plugin (.js)",
-        aboutTitle: "About", desc: "Streamix is an open-source application designed to centralize your streaming sources.", madeBy: "Made with <span class='heart'>❤️</span>, by Zetsukae.",
-        btnRepo: "Repo", btnWiki: "Wiki", btnIssues: "Issues", btnCancel: "Cancel", btnSave: "Save"
-      },
-      es: {
-        title: "Ajustes", menuGeneral: "General", menuPlugins: "Plugins", menuAbout: "Acerca de",
-        langLabel: "Idioma", langDesc: "Idioma de la interfaz.",
-        sourceTitle: "Fuente de inicio", sourceDesc: "URL de GitHub Pages válida (<strong>.github.io/</strong>).",
-        appearanceTitle: "Apariencia", styleImmersive: "Streamix (Inmersivo)", styleNative: "Nativo (Tu SO)", animTitle: "Activar animaciones fluidas",
-        dangerTitle: "Zona de peligro", dangerDesc: "Borrar datos y reiniciar.", resetBtn: "Reiniciar Streamix",
-        pluginsTitle: "Plugins", securityTitle: "⚠️ Riesgo de seguridad", securityDesc: "Los plugins ejecutan <strong>código arbitrario</strong>. NUNCA añada un plugin desconocido.", addPluginBtn: "Añadir plugin (.js)",
-        aboutTitle: "Acerca de", desc: "Streamix es una aplicación de código abierto para centralizar tus fuentes de streaming.", madeBy: "Hecho con <span class='heart'>❤️</span>, por Zetsukae.",
-        btnRepo: "Repo", btnWiki: "Wiki", btnIssues: "Issues", btnCancel: "Cancelar", btnSave: "Guardar"
-      },
-      de: {
-        title: "Einstellungen", menuGeneral: "Allgemein", menuPlugins: "Erweiterungen", menuAbout: "Über",
-        langLabel: "Sprache", langDesc: "Sprache der Benutzeroberfläche.",
-        sourceTitle: "Startquelle", sourceDesc: "Gültige GitHub Pages URL (<strong>.github.io/</strong>).",
-        appearanceTitle: "Erscheinungsbild", styleImmersive: "Streamix (Immersiv)", styleNative: "Nativ (Ihr OS)", animTitle: "Flüssige Animationen",
-        dangerTitle: "Gefahrenzone", dangerDesc: "Alle Daten löschen.", resetBtn: "Zurücksetzen",
-        pluginsTitle: "Erweiterungen", securityTitle: "⚠️ Sicherheit", securityDesc: "Plugins sind <strong>beliebiger Code</strong>. Seien Sie vorsichtig.", addPluginBtn: "Plugin hinzufügen (.js)",
-        aboutTitle: "Über", desc: "Streamix zentralisiert Ihre Streaming-Quellen.", madeBy: "Gemacht mit <span class='heart'>❤️</span> von Zetsukae.",
-        btnRepo: "Repo", btnWiki: "Wiki", btnIssues: "Issues", btnCancel: "Abbrechen", btnSave: "Speichern"
-      },
-      ja: {
-        title: "設定", menuGeneral: "一般", menuPlugins: "プラグイン", menuAbout: "概要",
-        langLabel: "言語", langDesc: "インターフェース言語。",
-        sourceTitle: "起動ソース", sourceDesc: "有効なGitHub Pages URL (<strong>.github.io/</strong>)。",
-        appearanceTitle: "外観", styleImmersive: "Streamix (没入型)", styleNative: "ネイティブ (OS)", animTitle: "滑らかなアニメーション",
-        dangerTitle: "危険地帯", dangerDesc: "すべてのデータを消去。", resetBtn: "リセット",
-        pluginsTitle: "プラグイン", securityTitle: "⚠️ セキュリティ", securityDesc: "プラグインは<strong>任意のコード</strong>を実行します。注意してください。", addPluginBtn: "プラグイン追加 (.js)",
-        aboutTitle: "概要", desc: "Streamixはストリーミングソースを一元化するアプリです。", madeBy: "Zetsukaeによって<span class='heart'>❤️</span>で作られました。",
-        btnRepo: "Repo", btnWiki: "Wiki", btnIssues: "Issues", btnCancel: "キャンセル", btnSave: "保存"
-      }
-    };
+    let translations = {};
 
     document.addEventListener('DOMContentLoaded', async () => {
-      const urlInput = document.getElementById('sourceUrl');
+      const siteRadios = document.querySelectorAll('input[name="selectedSite"]');
       const animCheckbox = document.getElementById('animationsEnabled');
       const langSelect = document.getElementById('language');
+      let currentUiLang = 'fr';
 
-      function updateTexts(lang) {
-        const t = translations[lang] || translations.fr;
-        document.querySelectorAll('[data-i18n]').forEach(el => {
-          const key = el.getAttribute('data-i18n');
-          if (t[key]) el.innerHTML = t[key];
-        });
+      function getTranslationValue(key, fallback = '') {
+        const bundle = translations[currentUiLang] || translations.fr || {};
+        const settingsValues = bundle.settings || {};
+        const commonValues = bundle.common || {};
+        const authValues = bundle.auth || {};
+        return settingsValues[key] ?? commonValues[key] ?? authValues[key] ?? fallback;
       }
 
-      urlInput.addEventListener('input', () => {
-        if(urlInput.value && !urlInput.value.includes('.github.io/')) { urlInput.style.borderColor = '#f85149'; }
-        else { urlInput.style.borderColor = '#30363d'; }
-      });
+      function updateTexts(lang) {
+        currentUiLang = lang || 'fr';
+        const bundle = translations[currentUiLang] || translations.fr || {};
+        const t = bundle.settings || {};
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+          const key = el.getAttribute('data-i18n');
+          const value = t[key] ?? bundle.common?.[key] ?? bundle.auth?.[key];
+          if (value !== undefined) el.innerHTML = value;
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+          const key = el.getAttribute('data-i18n-placeholder');
+          const value = t[key] ?? bundle.common?.[key] ?? bundle.auth?.[key];
+          if (value !== undefined) el.setAttribute('placeholder', value);
+        });
+      }
 
       langSelect.addEventListener('change', (e) => {
         updateTexts(e.target.value);
@@ -273,17 +327,158 @@
 
       if(window.electronAPI) {
         try {
+          translations = (await window.electronAPI.getAppTranslations()) || {};
           const config = await window.electronAPI.getPreferences();
-          urlInput.value = config.sourceUrl || '';
-          const style = config.windowStyle || 'default';
-          const radio = document.querySelector(`input[name="wStyle"][value="${style}"]`);
+          
+          // D'abord charger les URLs custom pour pouvoir les vérifier
+          const customUrls = await window.electronAPI.getCustomUrls();
+          const savedCustomUrls = customUrls || [];
+          
+          // Determine which site is selected based on sourceUrl
+          const siteMap = {
+            'https://franime.fr/': 'franime',
+            'https://anime-sama.pw/': 'anime-sama',
+            'https://mangas-origines.fr/': 'mangas-origines'
+          };
+          
+          let selectedSite = siteMap[config.sourceUrl];
+          
+          // Si ce n'est pas une URL fixe, vérifier si c'est une URL custom
+          if (!selectedSite) {
+            const customMatch = savedCustomUrls.find(url => url === config.sourceUrl);
+            if (customMatch) {
+              selectedSite = 'custom_' + customMatch;
+            } else {
+              selectedSite = 'franime'; // Valeur par défaut
+            }
+          }
+          
+          const radio = document.querySelector(`input[name="selectedSite"][value="${selectedSite}"]`);
           if(radio) radio.checked = true;
+          
+          const style = config.windowStyle || 'default';
+          const styleRadio = document.querySelector(`input[name="wStyle"][value="${style}"]`);
+          if(styleRadio) styleRadio.checked = true;
           animCheckbox.checked = config.animationsEnabled !== false;
-          const currentLang = config.language || 'fr';
+          const currentLang = config.language || (await window.electronAPI.getCurrentLanguage?.()) || 'en';
           langSelect.value = currentLang;
           updateTexts(currentLang);
-          loadPluginsList();
-        } catch(e) { console.error(e); }
+          
+          // Charger les plugins et URLs custom avec gestion d'erreur
+          loadPluginsList().catch(e => console.error('Erreur chargement plugins:', e));
+          loadCustomUrls().catch(e => console.error('Erreur chargement URLs custom:', e));
+          
+        } catch(e) { 
+          console.error('Erreur initialisation paramètres:', e);
+          // Valeurs par défaut en cas d'erreur
+          langSelect.value = 'en';
+          updateTexts('en');
+          loadPluginsList().catch(e => console.error('Erreur chargement plugins:', e));
+          loadCustomUrls().catch(e => console.error('Erreur chargement URLs custom:', e));
+        }
+      } else {
+        console.warn('electronAPI non disponible');
+        // Mode dégradé sans API
+        langSelect.value = 'en';
+        updateTexts('en');
+      }
+
+      async function loadCustomUrls() {
+        try {
+          // Vérifier que les éléments existent
+          const customUrlsList = document.getElementById("customUrlsList");
+          const customUrlInput = document.getElementById("customUrlInput");
+          const addCustomUrlBtn = document.getElementById("addCustomUrlBtn");
+          
+          if (!customUrlsList || !customUrlInput || !addCustomUrlBtn) {
+            console.error("Éléments manquants pour loadCustomUrls");
+            return;
+          }
+          
+          const customUrls = await window.electronAPI.getCustomUrls();
+          let savedUrls = customUrls || [];
+          const config = await window.electronAPI.getPreferences();
+          const currentUrl = config.sourceUrl;
+
+          function displayCustomUrls() {
+            customUrlsList.innerHTML = "";
+            savedUrls.forEach(url => {
+              const label = document.createElement("label");
+              label.className = "radio-option";
+              label.style.display = "flex";
+              label.style.justifyContent = "space-between";
+              label.style.alignItems = "center";
+              
+              const radio = document.createElement("input");
+              radio.type = "radio";
+              radio.name = "selectedSite";
+              radio.value = "custom_" + url;
+              if (currentUrl === url) radio.checked = true;
+              
+              const contentSpan = document.createElement("span");
+              contentSpan.style.flex = "1";
+              contentSpan.textContent = url;
+              
+              const btn = document.createElement("button");
+              btn.style.cssText = "background: none; border: none; color: #f85149; cursor: pointer; font-size: 14px; padding: 0 4px; margin-left: 8px;";
+              btn.textContent = "✕";
+              btn.type = "button";
+              btn.onclick = (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                removeSavedUrl(url);
+              };
+              
+              label.appendChild(radio);
+              label.appendChild(contentSpan);
+              label.appendChild(btn);
+              customUrlsList.appendChild(label);
+            });
+          }
+
+          window.removeSavedUrl = (url) => {
+            savedUrls = savedUrls.filter(u => u !== url);
+            window.electronAPI.saveCustomUrls(savedUrls);
+            displayCustomUrls();
+          };
+
+          if(addCustomUrlBtn) {
+            addCustomUrlBtn.onclick = () => {
+              const url = customUrlInput.value.trim();
+              
+              // Validation
+              if (!url) {
+                alert("Veuillez entrer une URL");
+                return;
+              }
+              
+              if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                alert("L'URL doit commencer par http:// ou https://");
+                customUrlInput.focus();
+                return;
+              }
+              
+              if (savedUrls.includes(url)) {
+                alert("Cette URL est déjà ajoutée");
+                return;
+              }
+              
+              // Ajouter l'URL
+              savedUrls.push(url);
+              window.electronAPI.saveCustomUrls(savedUrls);
+              customUrlInput.value = "";
+              displayCustomUrls();
+              
+              // Auto-sélectionner la nouvelle URL
+              const newRadio = document.querySelector('input[value="custom_' + url +'"]');
+              if (newRadio) newRadio.checked = true;
+            };
+          }
+
+          displayCustomUrls();
+        } catch(e) {
+          console.error("Error in loadCustomUrls:", e);
+        }
       }
 
       const navItems = document.querySelectorAll('.sidebar-item');
@@ -301,26 +496,70 @@
       document.getElementById('btnCancel').addEventListener('click', close);
 
       document.getElementById('btnSave').addEventListener('click', async () => {
-        const sourceUrl = urlInput.value;
+        const selectedSite = document.querySelector('input[name="selectedSite"]:checked').value;
         const style = document.querySelector('input[name="wStyle"]:checked').value;
         const animationsEnabled = animCheckbox.checked;
         const language = langSelect.value;
-        await window.electronAPI.saveConfig({ sourceUrl, windowStyle: style, animationsEnabled, language });
+        
+        let configToSave = { selectedSite, windowStyle: style, animationsEnabled, language };
+        
+        // Si c'est une URL custom, extraire l'URL réelle
+        if (selectedSite.startsWith('custom_')) {
+          const customUrl = selectedSite.substring(7); // Enlever "custom_"
+          configToSave.sourceUrl = customUrl;
+        }
+        
+        await window.electronAPI.saveConfig(configToSave);
       });
 
       document.getElementById('btnReset').addEventListener('click', async () => { if(confirm('Tout effacer ?')) await window.electronAPI.resetApp(); });
       document.getElementById('btnAddPlugin').addEventListener('click', async () => { await window.electronAPI.selectPluginFile(); loadPluginsList(); });
 
       const open = (url) => window.electronAPI.openExternal(url);
-      document.getElementById('btnRepo').addEventListener('click', () => open('https://github.com/Zetsukae/streamix'));
-      document.getElementById('btnWiki').addEventListener('click', () => open('https://github.com/Zetsukae/streamix/wiki'));
-      document.getElementById('btnIssues').addEventListener('click', () => open('https://github.com/Zetsukae/streamix/issues'));
+
+      // Fonction pour créer le menu contextuel
+      const createContextMenu = (url, element) => {
+        element.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          if (window.electronAPI && window.electronAPI.showContextMenu) {
+            window.electronAPI.showContextMenu([
+              {
+                label: translations[langSelect?.value || 'fr']?.openInBrowser || 'Ouvrir dans le navigateur par défaut',
+                click: () => open(url)
+              }
+            ]);
+          } else {
+            // Fallback si l'API n'est pas disponible
+            open(url);
+          }
+        });
+      };
+
+      // Supprimer les event listeners d'ouverture automatique et ajouter les menus contextuels
+      const btnRepo = document.getElementById('btnRepo');
+      const btnWiki = document.getElementById('btnWiki');
+      const btnIssues = document.getElementById('btnIssues');
+
+      const bindExternalLinkButton = (button, url) => {
+        if (!button) return;
+        button.addEventListener('click', () => open(url));
+        createContextMenu(url, button);
+      };
+
+      bindExternalLinkButton(btnRepo, 'https://github.com/Zetsukae/streamix');
+      bindExternalLinkButton(btnWiki, 'https://github.com/Zetsukae/streamix/wiki');
+      bindExternalLinkButton(btnIssues, 'https://github.com/Zetsukae/streamix/issues');
 
       async function loadPluginsList() {
         try {
-          const plugins = await window.electronAPI.getPlugins();
+          // Vérifier que l'élément existe
           const list = document.getElementById('plugin-list');
-          list.innerHTML = '';
+          if (!list) {
+            console.error("Élément plugin-list manquant");
+            return;
+          }
+          
+          const plugins = await window.electronAPI.getPlugins();
           const currentLang = langSelect.value;
           const t = translations[currentLang] || translations.fr;
 
@@ -328,15 +567,43 @@
             list.innerHTML = `<div style="text-align: center; color: #8b949e; padding: 20px;">${t.noPlugins || "Aucun plugin installé"}</div>`;
             return;
           }
+
+          list.innerHTML = ''; // Clear the loading message
+
           plugins.forEach(p => {
             const div = document.createElement('div');
             div.className = 'plugin-item';
+            div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;';
+
+            // --- ACTIONS AT LEFT (DELETE BTN) ---
+            const leftActions = document.createElement('div');
+            leftActions.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+            
+            // X Button (Delete)
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-icon';
+            deleteBtn.innerHTML = '✕';
+            deleteBtn.style.cssText = 'background: none; border: none; color: #8b949e; cursor: pointer; font-size: 18px; padding: 4px; transition: color 0.2s; flex-shrink: 0;';
+            deleteBtn.title = 'Supprimer';
+            deleteBtn.addEventListener('mouseover', () => deleteBtn.style.color = '#f85149');
+            deleteBtn.addEventListener('mouseout', () => deleteBtn.style.color = '#8b949e');
+            deleteBtn.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              if(confirm(`Supprimer ${p.name} ?`)) {
+                await window.electronAPI.removePlugin(p.path);
+                loadPluginsList();
+              }
+            });
+
+            // --- PLUGIN INFO (CENTER) ---
+            const infoContainer = document.createElement('div');
+            infoContainer.style.flex = '1';
 
             // --- GESTION AUTEUR / GITHUB / VERSION ---
             let authorHtml = '';
             if (p.author) {
                 if (p.github) {
-                    authorHtml = `<a href="#" onclick="event.preventDefault(); window.electronAPI.openExternal('${p.github}')" style="color: var(--blue-link); margin-left: 8px; text-decoration: none; font-weight: normal; opacity: 1;">by ${p.author}</a>`;
+                    authorHtml = `<span style="color: var(--blue-link); margin-left: 8px; text-decoration: none; font-weight: normal; opacity: 1; cursor: pointer;" class="plugin-author-link" data-github="${p.github}">by ${p.author}</span>`;
                 } else {
                     authorHtml = `<span style="color: var(--text-muted); margin-left: 8px; font-weight: normal; opacity: 0.8;">by ${p.author}</span>`;
                 }
@@ -345,19 +612,332 @@
             // Badge Version
             const versionHtml = p.version ? `<span style="background: #21262d; border: 1px solid #30363d; border-radius: 10px; padding: 2px 8px; font-size: 10px; color: var(--text-muted); margin-left: 8px;">v${p.version}</span>` : '';
 
-            div.innerHTML = `<div class="plugin-info"><div>${p.name} ${versionHtml} ${authorHtml}</div><div>${p.path}</div></div>`;
+            infoContainer.innerHTML = `<div class="plugin-info"><div>${p.name} ${versionHtml} ${authorHtml}</div><div>${p.path}</div></div>`;
 
-            const btn = document.createElement('button');
-            btn.className = 'btn-icon';
-            btn.innerHTML = '🗑️';
-            btn.title = 'Supprimer';
-            btn.onclick = async () => { if(confirm('Supprimer ce plugin ?')) { await window.electronAPI.removePlugin(p.path); loadPluginsList(); }};
-            div.appendChild(btn);
+            // --- TOGGLE SWITCH (RIGHT) ---
+            const toggleSwitch = document.createElement('input');
+            toggleSwitch.type = 'checkbox';
+            toggleSwitch.checked = p.enabled !== false;
+            toggleSwitch.style.cssText = 'cursor: pointer; width: 18px; height: 18px; accent-color: var(--green-btn); flex-shrink: 0;';
+            toggleSwitch.title = p.enabled ? 'Actif' : 'Inactif';
+            
+            toggleSwitch.addEventListener('change', async (e) => {
+              e.stopPropagation();
+              const result = await window.electronAPI.togglePlugin(p.path);
+              if (result.success) {
+                toggleSwitch.checked = result.enabled;
+                toggleSwitch.title = result.enabled ? 'Actif' : 'Inactif';
+              }
+            });
+
+            leftActions.appendChild(deleteBtn);
+            div.appendChild(leftActions);
+            div.appendChild(infoContainer);
+            div.appendChild(toggleSwitch);
+
             list.appendChild(div);
+
+            // Ajouter le menu contextuel pour les liens GitHub des auteurs
+            const authorLink = div.querySelector('.plugin-author-link');
+            if (authorLink && authorLink.dataset.github) {
+              createContextMenu(authorLink.dataset.github, authorLink);
+            }
           });
-        } catch(e) {}
+        } catch(e) {
+          console.error('Erreur loadPluginsList:', e);
+          const list = document.getElementById('plugin-list');
+          if (list) {
+            list.innerHTML = `<div style="text-align: center; color: #f85149; padding: 20px;">Erreur lors du chargement des plugins</div>`;
+          }
+        }
       }
+
+      // --- SUPABASE AUTH HANDLERS ---
+      const authModal = document.getElementById('authModal');
+      const emailVerifyModal = document.getElementById('emailVerifyModal');
+      const modalCancel = document.getElementById('modalCancel');
+      const btnVerifyOk = document.getElementById('btnVerifyOk');
+
+      console.log('Supabase handlers initialized');
+
+      function maskEmail(email) {
+        if (!email || typeof email !== 'string') {
+          return 'Compte connecté';
+        }
+
+        const trimmedEmail = email.trim();
+        if (!trimmedEmail.includes('@')) {
+          return 'Compte connecté';
+        }
+
+        const [localPart, domainPart] = trimmedEmail.split('@');
+        if (!localPart || !domainPart) {
+          return 'Compte connecté';
+        }
+
+        const maskPart = (value) => {
+          if (!value) return '';
+          if (value.length <= 2) return `${value[0] || ''}*`;
+          return `${value[0]}${'*'.repeat(Math.max(1, value.length - 2))}${value[value.length - 1]}`;
+        };
+
+        const domainSegments = domainPart.split('.');
+        const domainName = domainSegments[0] || '';
+        const suffix = domainSegments.length > 1 ? `.${domainSegments.slice(1).join('.')}` : '';
+        return `${maskPart(localPart)}@${maskPart(domainName)}${suffix}`;
+      }
+
+      async function updateSupabaseAuthUI() {
+        try {
+          const user = await window.electronAPI.authGetUser();
+          const authContainer = document.getElementById('supabaseAuthContainer');
+          const loggedInDiv = document.getElementById('supabaseLoggedIn');
+          const avatarImg = document.getElementById('supabaseUserAvatar');
+          const nameEl = document.getElementById('supabaseUserName');
+          const emailEl = document.getElementById('supabaseUserEmail');
+
+          if (user?.data?.user) {
+            authContainer.style.display = 'none';
+            loggedInDiv.style.display = 'block';
+
+            const userData = user.data.user;
+            const userName = userData.user_metadata?.full_name || userData.user_metadata?.name || userData.email || 'Utilisateur';
+            const avatarUrl = userData.user_metadata?.avatar_url || userData.user_metadata?.picture || null;
+
+            nameEl.textContent = userName;
+            emailEl.textContent = maskEmail(userData.email);
+
+            if (avatarUrl) {
+              avatarImg.src = avatarUrl;
+              avatarImg.style.display = 'block';
+            } else {
+              avatarImg.style.display = 'none';
+            }
+
+            await loadSupabaseSources(userData.id);
+
+            if (!window.supabaseSyncInterval) {
+              window.supabaseSyncInterval = setInterval(() => {
+                saveSupabaseSources(userData.id);
+              }, 25 * 60 * 1000);
+            }
+          } else {
+            authContainer.style.display = 'flex';
+            loggedInDiv.style.display = 'none';
+            if (window.supabaseSyncInterval) {
+              clearInterval(window.supabaseSyncInterval);
+              window.supabaseSyncInterval = null;
+            }
+          }
+        } catch (e) {
+          console.error('Supabase auth check error:', e);
+        }
+      }
+
+      async function loadSupabaseSources(userId) {
+        try {
+          const result = await window.electronAPI.loadSources(userId);
+          if (result.error) {
+            console.error('Load sources error:', result.error);
+            return;
+          }
+          if (result.data && result.data.length > 0) {
+            console.log('Loaded sources from Supabase:', result.data);
+            if (window.electronAPI.getPreferences) {
+              const prefs = await window.electronAPI.getPreferences();
+              if (!prefs.supabaseSources) prefs.supabaseSources = [];
+
+              const restoredSources = [];
+              for (const entry of result.data) {
+                const payload = entry.data || {};
+                const sourceUrl = payload.data || payload.url || payload.sourceUrl;
+                if (sourceUrl && Array.isArray(payload.cookies) && payload.cookies.length > 0) {
+                  const restoreResult = await window.electronAPI.restoreCookiesForUrl(sourceUrl, payload.cookies);
+                  console.log('Restored cookies for', sourceUrl, restoreResult);
+                }
+                restoredSources.push(payload);
+              }
+
+              prefs.supabaseSources = restoredSources;
+              await window.electronAPI.saveConfig(prefs);
+            }
+          }
+        } catch (e) {
+          console.error('Load sources error:', e);
+        }
+      }
+
+      async function saveSupabaseSources(userId) {
+        try {
+          const prefs = await window.electronAPI.getPreferences();
+          const customUrls = prefs.customUrls || [];
+          
+          // Save each source
+          for (const url of customUrls) {
+            const cookies = await window.electronAPI.collectCookiesForUrl(url);
+            await window.electronAPI.saveSource(userId, {
+              name: url,
+              data: url,
+              timestamp: new Date().toISOString(),
+              sourceUrl: url,
+              cookies
+            });
+          }
+          console.log('Supabase sync completed at', new Date().toLocaleString());
+        } catch (e) {
+          console.error('Save sources error:', e);
+        }
+      }
+
+      // Show modal for OAuth
+      document.getElementById('btnSupabaseLogin')?.addEventListener('click', () => {
+        authModal.classList.add('active');
+      });
+
+      // Discord OAuth
+      document.getElementById('btnDiscordLogin')?.addEventListener('click', async () => {
+        try {
+          authModal.classList.remove('active');
+          const result = await window.electronAPI.authSignInWithDiscord();
+          if (result?.error) {
+            alert(`Erreur: ${result.error.message}`);
+            return;
+          }
+          await updateSupabaseAuthUI();
+        } catch (e) {
+          console.error('Discord OAuth error:', e);
+          alert(`Erreur: ${e.message}`);
+        }
+      });
+
+      // Handle modal cancel
+      modalCancel.addEventListener('click', () => {
+        console.log('❌ Cancel button clicked');
+        authModal.classList.remove('active');
+      });
+
+      // Close modal on Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (authModal.classList.contains('active')) {
+            authModal.classList.remove('active');
+          }
+          if (emailVerifyModal.classList.contains('active')) {
+            emailVerifyModal.classList.remove('active');
+          }
+        }
+      });
+
+      // Close modal on outside click
+      authModal.addEventListener('click', (e) => {
+        if (e.target === authModal) {
+          authModal.classList.remove('active');
+        }
+      });
+
+      // Email verify modal handlers
+      btnVerifyOk.addEventListener('click', () => {
+        emailVerifyModal.classList.remove('active');
+      });
+
+      emailVerifyModal.addEventListener('click', (e) => {
+        if (e.target === emailVerifyModal) {
+          emailVerifyModal.classList.remove('active');
+        }
+      });
+
+      // Sign Out
+      document.getElementById('btnSupabaseLogout')?.addEventListener('click', async () => {
+        try {
+          await window.electronAPI.authSignOut();
+          await updateSupabaseAuthUI();
+        } catch (e) {
+          alert(`Erreur: ${e.message}`);
+        }
+      });
+
+      // Manual Save
+      document.getElementById('btnSaveNow')?.addEventListener('click', async () => {
+        try {
+          const user = await window.electronAPI.authGetUser();
+          if (!user?.data?.user) {
+            alert(getTranslationValue('connectRequired', 'Vous devez être connecté'));
+            return;
+          }
+
+          console.log('Manual save triggered...');
+          const button = document.getElementById('btnSaveNow');
+          button.disabled = true;
+          button.textContent = getTranslationValue('saveInProgress', 'Sauvegarde en cours');
+
+          await saveSupabaseSources(user.data.user.id);
+
+          button.textContent = getTranslationValue('saved', 'Sauvegardé');
+          setTimeout(() => {
+            button.disabled = false;
+            button.textContent = getTranslationValue('testSave', 'Tester la sauvegarde');
+          }, 2000);
+        } catch (e) {
+          console.error('Save error:', e);
+          alert(`${getTranslationValue('error', 'Erreur')}: ${e.message}`);
+          const button = document.getElementById('btnSaveNow');
+          button.disabled = false;
+          button.textContent = getTranslationValue('testSave', 'Tester la sauvegarde');
+        }
+      });
+
+      // Manual Load
+      document.getElementById('btnLoadNow')?.addEventListener('click', async () => {
+        try {
+          const user = await window.electronAPI.authGetUser();
+          if (!user?.data?.user) {
+            alert(getTranslationValue('connectRequired', 'Vous devez être connecté'));
+            return;
+          }
+          
+          console.log('Manual load triggered...');
+          document.getElementById('btnLoadNow').disabled = true;
+          document.getElementById('btnLoadNow').textContent = getTranslationValue('loadingInProgress', 'Chargement en cours');
+          
+          await loadSupabaseSources(user.data.user.id);
+          
+          document.getElementById('btnLoadNow').textContent = getTranslationValue('loaded', 'Chargé');
+          setTimeout(() => {
+            document.getElementById('btnLoadNow').disabled = false;
+            document.getElementById('btnLoadNow').textContent = getTranslationValue('load', 'Charger');
+          }, 2000);
+        } catch (e) {
+          console.error('Load error:', e);
+          alert(`${getTranslationValue('error', 'Erreur')}: ${e.message}`);
+          document.getElementById('btnLoadNow').disabled = false;
+          document.getElementById('btnLoadNow').textContent = getTranslationValue('load', 'Charger');
+        }
+      });
+
+      // Listen for data sync from the main app
+      window.addEventListener('message', async (ev) => {
+        if (ev.data?.type === 'streamix-storage-command' && ev.data?.allData) {
+          try {
+            const user = await window.electronAPI.authGetUser();
+            if (user?.data?.user) {
+              await saveSupabaseSources(user.data.user.id);
+            }
+          } catch (e) {
+            console.error('Auto-sync error:', e);
+          }
+        }
+      });
+
+      window.addEventListener('supabase-auth-state-changed', async (event) => {
+        await updateSupabaseAuthUI();
+      });
+
+      (async () => {
+        await window.electronAPI.authRestoreSession();
+        await updateSupabaseAuthUI();
+      })();
     });
+
   </script>
 </body>
 </html>

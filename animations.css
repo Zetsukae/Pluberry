@@ -1,10 +1,7 @@
 /* --- ANIMATIONS.CSS --- */
 
-/* 1. Animation du Menu F1 */
 #custom-menu {
-/* Point d'origine pour l'effet de zoom */
 transform-origin: top left;
-/* Animation d'entrée : Glissement vers le bas + Fondu */
 animation: menuEnter 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
@@ -19,18 +16,14 @@ animation: menuEnter 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     }
 }
 
-/* 2. Animation des Boutons Overlay (Apparition douce) */
 .streamix-btn {
-    /* Les boutons apparaissent avec un léger retard pour un effet "cascade" */
     animation: btnPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
 }
 
-/* Délai pour le bouton Home */
 #streamix-home-btn { animation-delay: 0.1s; }
 
-/* Délais pour les contrôles (si présents) */
-#window-controls button:nth-child(1) { animation-delay: 0.2s; } /* Minimiser */
-#window-controls button:nth-child(2) { animation-delay: 0.3s; } /* Fermer */
+#window-controls button:nth-child(1) { animation-delay: 0.2s; }
+#window-controls button:nth-child(2) { animation-delay: 0.3s; }
 
 @keyframes btnPop {
     0% {
@@ -43,24 +36,21 @@ animation: menuEnter 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     }
 }
 
-/* 3. Effet de clic (Ripple/Press) sur les boutons */
 .streamix-btn:active {
     transform: scale(0.92) !important;
     transition: transform 0.1s;
 }
 
-/* 4. Animation d'entrée pour les éléments du menu F1 */
 #custom-menu button {
 opacity: 0;
 animation: itemSlideIn 0.3s ease-out forwards;
 }
 
-/* Délais progressifs pour chaque item du menu */
 #custom-menu button:nth-child(1) { animation-delay: 0.05s; }
 #custom-menu button:nth-child(2) { animation-delay: 0.10s; }
 #custom-menu button:nth-child(3) { animation-delay: 0.15s; }
 #custom-menu button:nth-child(4) { animation-delay: 0.20s; }
-#custom-menu button:nth-child(6) { animation-delay: 0.25s; } /* Saut du séparateur */
+#custom-menu button:nth-child(6) { animation-delay: 0.25s; }
 #custom-menu button:nth-child(7) { animation-delay: 0.30s; }
 
 @keyframes itemSlideIn {

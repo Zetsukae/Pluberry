@@ -1,7 +1,7 @@
 {
   "name": "streamix",
-  "version": "1.0.0",
-  "description": "Application pouvant faire ce que vous voulez avec vos source!",
+  "version": "1.2.26",
+  "description": "Application regroupant toutes vos sources de streaming!",
   "author": "Zetsukae",
   "main": "main.js",
   "scripts": {
@@ -13,11 +13,13 @@
     "build:linux": "electron-builder --linux"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.2",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.6.2"
   },
   "devDependencies": {
-    "electron": "^33.0.0",
+    "electron": "^42.4.1",
     "electron-builder": "^24.13.3"
   },
   "build": {
@@ -32,6 +34,9 @@
       "contextMenu.js",
       "locales.js",
       "preload.js",
+      "supabase.js",
+      "env-loader.js",
+      ".env",
       "*.html",
       "*.css",
       "assets/**/*"
@@ -42,16 +47,22 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     },
     "win": {
       "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
       "target": [
         {
-          "target": "nsis",
-          "arch": ["x64", "ia32"]
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -61,7 +72,9 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
