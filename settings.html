@@ -210,10 +210,6 @@
               <input type="radio" name="selectedSite" value="anime-sama">
               <span data-i18n="sourceAnimeSama">Anime Sama (https://anime-sama.pw/)</span>
             </label>
-            <label class="radio-option">
-              <input type="radio" name="selectedSite" value="mangas-origines">
-              <span data-i18n="sourceMangasOrigines">Mangas Origines (https://mangas-origines.fr/)</span>
-            </label>
           </div>
         </div>
 
@@ -232,7 +228,7 @@
           <div class="radio-group">
             <label class="radio-option">
               <input type="radio" name="wStyle" value="default">
-              <span data-i18n="styleImmersive">Streamix (Immersif)</span>
+              <span data-i18n="styleImmersive">Pluberry (Immersif)</span>
             </label>
             <label class="radio-option">
               <input type="radio" name="wStyle" value="windows">
@@ -264,8 +260,8 @@
       <div id="about" class="section">
         <h2 data-i18n="aboutTitle">À propos</h2>
         <div style="text-align: center; padding: 40px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface);">
-          <img src="https://i.imgur.com/lv3zp1J.png" alt="Logo" style="width: 64px; margin-bottom: 16px; opacity: 0.8;">
-          <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px;">Streamix</div>
+          <img src="https://i.imgur.com/IuzfeVB.png" alt="Logo" style="width: 64px; margin-bottom: 16px; opacity: 0.8;">
+          <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px;">Pluberry</div>
           <div style="color: var(--text-muted); margin-bottom: 16px;">Version 1.2.26 - Beyond Advance</div>
           <p style="color: var(--text-main); font-size: 14px; margin-bottom: 8px; line-height: 1.6; max-width: 400px; margin-left: auto; margin-right: auto;" data-i18n="desc">
             Description app.
@@ -338,7 +334,6 @@
           const siteMap = {
             'https://franime.fr/': 'franime',
             'https://anime-sama.pw/': 'anime-sama',
-            'https://mangas-origines.fr/': 'mangas-origines'
           };
           
           let selectedSite = siteMap[config.sourceUrl];
@@ -546,9 +541,9 @@
         createContextMenu(url, button);
       };
 
-      bindExternalLinkButton(btnRepo, 'https://github.com/Zetsukae/streamix');
-      bindExternalLinkButton(btnWiki, 'https://github.com/Zetsukae/streamix/wiki');
-      bindExternalLinkButton(btnIssues, 'https://github.com/Zetsukae/streamix/issues');
+      bindExternalLinkButton(btnRepo, 'https://github.com/Zetsukae/Pluberry');
+      bindExternalLinkButton(btnWiki, 'https://github.com/Zetsukae/Pluberry/wiki');
+      bindExternalLinkButton(btnIssues, 'https://github.com/Zetsukae/Pluberry/issues');
 
       async function loadPluginsList() {
         try {

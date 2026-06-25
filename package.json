@@ -1,5 +1,5 @@
 {
-  "name": "streamix",
+  "name": "Pluberry",
   "version": "1.2.26",
   "description": "Application regroupant toutes vos sources de streaming!",
   "author": "Zetsukae",
@@ -23,8 +23,8 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.streamix.app",
-    "productName": "Streamix",
+    "appId": "com.pluberry.app",
+    "productName": "Pluberry",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -81,7 +81,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "Streamix",
+      "shortcutName": "Pluberry",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     }

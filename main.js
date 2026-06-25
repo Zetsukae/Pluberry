@@ -229,7 +229,7 @@ function createWindow() {
 
         const homeBtn = document.createElement('button'); homeBtn.className = 'streamix-btn'; homeBtn.id = 'streamix-home-btn';
         homeBtn.style.cssText = 'position: fixed !important; top: 10px !important; left: 10px !important; background: transparent !important; backdrop-filter: none !important;';
-        homeBtn.innerHTML = '<img src="https://i.imgur.com/lv3zp1J.png" alt="Home">';
+        homeBtn.innerHTML = '<img src="https://i.imgur.com/IuzfeVB.png" alt="Home">';
         homeBtn.onclick = () => window.electronAPI.triggerF1Menu();
         root.appendChild(homeBtn);
 
