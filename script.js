@@ -1,7 +1,6 @@
 // URLs de téléchargement directs
 const DOWNLOAD_URLS = {
-    // windows: "https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-1.2.26-BeyondAdvance/Pluberry.Setup.1.2.26.exe",
-    windows: "notAvailable/",
+    windows: "https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-1.2.26-BeyondAdvance/Pluberry.Setup.1.2.26.exe",
     linux: "https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-1.2.26-BeyondAdvance/Pluberry-1.2.26.AppImage",
     other: "https://github.com/Zetsukae/Pluberry/releases"
 };
