@@ -129,12 +129,16 @@ function createWindow() {
   syncAppLanguage(config.language)
   const isWindowsStyle = config.windowStyle === "windows"
 
+  const windowIconPath = process.platform === "win32"
+    ? getResourcePath(path.join("assets", "icon.ico"))
+    : getResourcePath(path.join("assets", "icon.png"));
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    icon: getResourcePath(path.join("assets", "icon.png")),
+    icon: windowIconPath,
                                  webPreferences: {
                                    nodeIntegration: false,
                                    contextIsolation: true,
