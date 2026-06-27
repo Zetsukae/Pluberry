@@ -4,6 +4,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   minimize: () => ipcRenderer.invoke("minimize-window"),
   close: () => ipcRenderer.invoke("close-window"),
   restart: () => ipcRenderer.invoke("restart-app"),
+  hideWindow: () => ipcRenderer.invoke("hide-window"),
+  showWindow: () => ipcRenderer.invoke("show-window"),
+  focusWindow: () => ipcRenderer.invoke("focus-window"),
 
   triggerF1Menu: () => ipcRenderer.invoke("trigger-f1-menu"),
 
@@ -17,6 +20,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   closeSettings: () => ipcRenderer.invoke("close-settings"),
 
   getPlugins: () => ipcRenderer.invoke("get-plugins"),
+  getPluginStore: () => ipcRenderer.invoke("get-plugin-store"),
+  installPluginFromStore: (plugin) => ipcRenderer.invoke("install-plugin-from-store", plugin),
   selectPluginFile: () => ipcRenderer.invoke("select-plugin-file"),
   removePlugin: (path) => ipcRenderer.invoke("remove-plugin", path),
   togglePlugin: (path) => ipcRenderer.invoke("toggle-plugin", path),

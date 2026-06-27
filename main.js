@@ -1,9 +1,12 @@
 const { app, BrowserWindow, ipcMain, Menu, shell, dialog, session } = require("electron")
 const path = require("node:path")
 const fs = require("fs")
+const https = require("node:https")
+const http = require("node:http")
 const { locales } = require("./locales")
 const Store = require("electron-store")
 const { loadDotEnv } = require("./env-loader")
+const DiscordRPC = require("discord-rpc")
 
 loadDotEnv([
   path.join(__dirname, '.env'),
@@ -30,6 +33,226 @@ function getResourcePath(filename) {
   return path.join(__dirname, filename);
 }
 
+const PLUGIN_STORE_URL = "https://raw.githubusercontent.com/Zetsukae/Pluberry/website/sources/index.html";
+
+function fetchRemoteText(url) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith("https://") ? https : http;
+    const req = client.get(url, {
+      headers: { "User-Agent": "Pluberry-App" }
+    }, (res) => {
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        fetchRemoteText(new URL(res.headers.location, url).toString()).then(resolve).catch(reject);
+        return;
+      }
+
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(new Error(`HTTP ${res.statusCode}`));
+        return;
+      }
+
+      let data = "";
+      res.setEncoding("utf8");
+      res.on("data", chunk => data += chunk);
+      res.on("end", () => resolve(data));
+    });
+
+    req.on("error", reject);
+  });
+}
+
+function decodeHtmlEntities(value = "") {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+}
+
+function stripHtml(value = "") {
+  return decodeHtmlEntities(value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+}
+
+function getStoreDownloadUrlFromAnchorBlock(html = "") {
+  const anchors = html.matchAll(/<a\b[^>]*>/gi);
+
+  for (const match of anchors) {
+    const tag = match[0];
+    if (!/class="[^"]*\bstore\b[^"]*"/i.test(tag)) continue;
+
+    const hrefMatch = tag.match(/href="([^"]+)"/i);
+    if (hrefMatch?.[1]) {
+      return hrefMatch[1];
+    }
+  }
+
+  return null;
+}
+
+function extractBlockFromMarker(html, marker, openTag = "div") {
+  const startIndex = html.indexOf(marker);
+  if (startIndex === -1) return null;
+
+  const contentStart = html.indexOf(">", startIndex);
+  if (contentStart === -1) return null;
+
+  let depth = 1;
+  let pos = contentStart + 1;
+
+  while (pos < html.length) {
+    const nextOpen = html.indexOf(`<${openTag}`, pos);
+    const nextClose = html.indexOf(`</${openTag}>`, pos);
+
+    if (nextClose === -1) return null;
+
+    if (nextOpen !== -1 && nextOpen < nextClose) {
+      depth += 1;
+      pos = nextOpen + 1;
+    } else {
+      depth -= 1;
+      pos = nextClose + openTag.length + 3;
+      if (depth === 0) {
+        return html.slice(contentStart + 1, nextClose);
+      }
+    }
+  }
+
+  return null;
+}
+
+function parseOfficialPluginStore(html) {
+  const plugins = [];
+  const seen = new Set();
+  let searchIndex = 0;
+
+  while (true) {
+    const start = html.indexOf('<div class="source-card">', searchIndex);
+    if (start === -1) break;
+
+    const cardBlock = extractBlockFromMarker(html.slice(start), '<div class="source-card">', 'div');
+    if (!cardBlock) {
+      searchIndex = start + 1;
+      continue;
+    }
+
+    const officialContent = extractBlockFromMarker(cardBlock, '<div class="card-content official">', 'div');
+    if (!officialContent) {
+      searchIndex = start + 1;
+      continue;
+    }
+
+    const titleMatch = officialContent.match(/<h3 class="card-title">([\s\S]*?)<\/h3>/i);
+    const descriptionMatch = officialContent.match(/<p class="card-description">([\s\S]*?)<\/p>/i);
+    const creatorMatch = officialContent.match(/<span class="creator-name">([\s\S]*?)<\/span>/i);
+    const imageMatch = cardBlock.match(/<img[^>]+src="([^"]+)"/i);
+    const downloadUrl = getStoreDownloadUrlFromAnchorBlock(cardBlock) || "";
+    const githubMatch = cardBlock.match(/<a[^>]+href="(https:\/\/github\.com\/[^\"]+)"/i);
+
+    const name = stripHtml(titleMatch?.[1] || "");
+    const description = stripHtml(descriptionMatch?.[1] || "");
+    const creator = stripHtml(creatorMatch?.[1] || "");
+    const image = imageMatch?.[1] || "";
+    const githubUrl = githubMatch?.[1] || "";
+
+    if (!downloadUrl || !name || seen.has(downloadUrl)) {
+      searchIndex = start + 1;
+      continue;
+    }
+
+    seen.add(downloadUrl);
+    plugins.push({
+      name,
+      description,
+      creator,
+      image,
+      downloadUrl,
+      githubUrl,
+      source: "store"
+    });
+
+    searchIndex = start + 1;
+  }
+
+  return plugins;
+}
+
+function getPluginMetadata(filePath) {
+  let author = null;
+  let github = null;
+  let version = null;
+
+  try {
+    const content = fs.readFileSync(filePath, "utf8");
+    const authorMatch = content.match(/\/\/\s*@author\s+(.*)/i);
+    const githubMatch = content.match(/\/\/\s*@github\s+(.*)/i);
+    const versionMatch = content.match(/\/\/\s*@version\s+(.*)/i);
+
+    if (authorMatch?.[1]) author = authorMatch[1].trim();
+    if (githubMatch?.[1]) github = githubMatch[1].trim();
+    if (versionMatch?.[1]) version = versionMatch[1].trim();
+  } catch (error) {
+    console.warn("Unable to read plugin metadata:", error);
+  }
+
+  return { author, github, version };
+}
+
+function copyPluginToAppFolder(sourcePath) {
+  const pluginsDir = path.join(app.getPath('userData'), 'plugins');
+  
+  if (!fs.existsSync(pluginsDir)) {
+    fs.mkdirSync(pluginsDir, { recursive: true });
+  }
+  
+  const fileName = path.basename(sourcePath);
+  const destPath = path.join(pluginsDir, fileName);
+  
+  fs.copyFileSync(sourcePath, destPath);
+  return destPath;
+}
+
+function downloadPluginToAppFolder(downloadUrl, fallbackName = "plugin.js") {
+  return new Promise((resolve, reject) => {
+    const pluginsDir = path.join(app.getPath('userData'), 'plugins');
+    if (!fs.existsSync(pluginsDir)) {
+      fs.mkdirSync(pluginsDir, { recursive: true });
+    }
+
+    const parsedUrl = new URL(downloadUrl);
+    let fileName = path.basename(parsedUrl.pathname || fallbackName);
+    fileName = fileName.replace(/[\\/]/g, "").replace(/^\.+/, "");
+    if (!fileName.toLowerCase().endsWith(".js")) fileName += ".js";
+
+    const destPath = path.join(pluginsDir, fileName);
+    const client = parsedUrl.protocol === "https:" ? https : http;
+    const req = client.get(downloadUrl, { headers: { "User-Agent": "Pluberry-App" } }, (res) => {
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        downloadPluginToAppFolder(new URL(res.headers.location, downloadUrl).toString(), fallbackName).then(resolve).catch(reject);
+        return;
+      }
+
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(new Error(`Download failed with status ${res.statusCode}`));
+        return;
+      }
+
+      const file = fs.createWriteStream(destPath);
+      res.pipe(file);
+      file.on("finish", () => file.close(() => resolve(destPath)));
+      file.on("error", (error) => {
+        fs.rmSync(destPath, { force: true });
+        reject(error);
+      });
+    });
+
+    req.on("error", reject);
+  });
+}
+
 const store = new Store({
   defaults: {
     config: {
@@ -51,6 +274,9 @@ let settingsWindow = null
 let supabaseApi = null
 let supabaseHandlersRegistered = false
 let unsubscribeAuth = null
+let discordClient = null
+let discordReady = false
+let discordActivity = null
 
 async function collectCookiesForSource(sourceUrl) {
   if (!sourceUrl) return [];
@@ -203,6 +429,18 @@ function createWindow() {
     }
   });
 
+  mainWindow.webContents.on("did-navigate", (_event, url) => {
+    updateDiscordPresence(getDiscordActivityFromUrl(url, mainWindow.webContents.getTitle()));
+  });
+
+  mainWindow.webContents.on("did-navigate-in-page", (_event, url) => {
+    updateDiscordPresence(getDiscordActivityFromUrl(url, mainWindow.webContents.getTitle()));
+  });
+
+  mainWindow.webContents.on("page-title-updated", (_event, title) => {
+    updateDiscordPresence(getDiscordActivityFromUrl(mainWindow.webContents.getURL(), title));
+  });
+
   // --- INJECTIONS (Overlay & CSS & PLUGINS) ---
   mainWindow.webContents.on("did-finish-load", () => {
     const currentUrl = mainWindow.webContents.getURL()
@@ -288,6 +526,8 @@ function createWindow() {
       })();
       `;
       mainWindow.webContents.executeJavaScript(bridgeScript).catch(() => {});
+
+      updateDiscordPresence(getDiscordActivityFromUrl(mainWindow.webContents.getURL(), mainWindow.webContents.getTitle()));
 
       // --- D. INJECTION DES PLUGINS ---
       const plugins = store.get("plugins", []) || [];
@@ -416,6 +656,97 @@ function loadSetupScreen() {
   });
 }
 
+function getDiscordActivityFromUrl(url = "", title = "") {
+  const fallbackTitle = title && title.trim() ? title.trim() : "Pluberry";
+
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.replace(/^www\./i, "");
+
+    if (!hostname || hostname === "about:blank") {
+      return {
+        details: "Using Pluberry",
+        state: "Preparing your stream",
+        largeImageKey: "icon",
+        largeImageText: "Pluberry",
+        instance: false
+      };
+    }
+
+    return {
+      details: "Browsing",
+      state: hostname || fallbackTitle,
+      largeImageKey: "icon",
+      largeImageText: "Pluberry",
+      instance: false
+    };
+  } catch (error) {
+    return {
+      details: "Using Pluberry",
+      state: fallbackTitle,
+      largeImageKey: "icon",
+      largeImageText: "Pluberry",
+      instance: false
+    };
+  }
+}
+
+function setupDiscordRichPresence() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  const clientId = process.env.DISCORD_CLIENT_ID?.trim() || "1520501049327353946";
+  if (!clientId) {
+    console.warn("[Discord RPC] No DISCORD_CLIENT_ID configured. Create a Discord application and set the environment variable to enable Rich Presence.");
+    return;
+  }
+
+  if (!/^\d+$/.test(clientId)) {
+    console.warn("[Discord RPC] DISCORD_CLIENT_ID must be a numeric Discord application ID.");
+    return;
+  }
+
+  try {
+    const rpc = new DiscordRPC.Client({ transport: "ipc" });
+    discordClient = rpc;
+
+    rpc.on("ready", () => {
+      discordReady = true;
+      console.log("[Discord RPC] Connected");
+      updateDiscordPresence(discordActivity || getDiscordActivityFromUrl(mainWindow.webContents.getURL(), mainWindow.webContents.getTitle()));
+    });
+
+    rpc.on("disconnected", () => {
+      discordReady = false;
+      discordClient = null;
+    });
+
+    rpc.login({ clientId }).catch((error) => {
+      console.warn("[Discord RPC] Login failed. Verify the client ID and that Discord is running:", error);
+      discordReady = false;
+      discordClient = null;
+    });
+  } catch (error) {
+    console.warn("[Discord RPC] unavailable:", error);
+  }
+}
+
+function updateDiscordPresence(activity = null) {
+  discordActivity = activity;
+
+  if (!discordClient || !discordReady) return;
+
+  try {
+    if (!activity) {
+      discordClient.clearActivity().catch(() => {});
+      return;
+    }
+
+    discordClient.setActivity(activity).catch(() => {});
+  } catch (error) {
+    console.warn("Failed to update Discord presence:", error);
+  }
+}
+
 function registerSupabaseHandlers() {
   if (supabaseHandlersRegistered) return;
 
@@ -496,11 +827,57 @@ function registerSupabaseHandlers() {
 app.whenReady().then(() => {
   registerSupabaseHandlers();
   createWindow();
+  setupDiscordRichPresence();
   Menu.setApplicationMenu(null);
 
-  ipcMain.handle("minimize-window", () => mainWindow.minimize());
-  ipcMain.handle("close-window", () => mainWindow.close());
+  ipcMain.handle("minimize-window", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.minimize();
+    }
+  });
+  ipcMain.handle("close-window", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.close();
+    }
+  });
   ipcMain.handle("restart-app", () => { app.relaunch(); app.exit(0); });
+  ipcMain.handle("hide-window", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.minimize();
+      } catch (error) {
+        console.warn("Unable to minimize window:", error);
+      }
+
+      return true;
+    }
+    return false;
+  });
+  ipcMain.handle("show-window", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        mainWindow.show();
+        mainWindow.focus();
+      } catch (error) {
+        console.warn("Unable to show window:", error);
+      }
+
+      return true;
+    }
+    return false;
+  });
+  ipcMain.handle("focus-window", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      return true;
+    }
+    return false;
+  });
   ipcMain.handle("open-external-link", (e, url) => shell.openExternal(url));
   ipcMain.handle("show-context-menu", (event, menuItems) => {
     const menu = Menu.buildFromTemplate(menuItems.map(item => ({
@@ -575,23 +952,48 @@ app.whenReady().then(() => {
   ipcMain.handle("get-current-language", () => syncAppLanguage(store.get("config")?.language));
   ipcMain.handle("get-app-translations", () => locales);
   ipcMain.handle("get-plugins", () => store.get("plugins"));
-
-  // --- HELPER: Copier plugin dans dossier de l'app (userData) ---
-  const copyPluginToAppFolder = (sourcePath) => {
-    const pluginsDir = path.join(app.getPath('userData'), 'plugins');
-    
-    // Créer le dossier s'il n'existe pas
-    if (!fs.existsSync(pluginsDir)) {
-      fs.mkdirSync(pluginsDir, { recursive: true });
+  ipcMain.handle("get-plugin-store", async () => {
+    try {
+      const html = await fetchRemoteText(PLUGIN_STORE_URL);
+      return { success: true, plugins: parseOfficialPluginStore(html) };
+    } catch (error) {
+      console.error("Unable to load plugin store:", error);
+      return { success: false, error: "Impossible de charger le store" };
     }
-    
-    const fileName = path.basename(sourcePath);
-    const destPath = path.join(pluginsDir, fileName);
-    
-    // Copier le fichier
-    fs.copyFileSync(sourcePath, destPath);
-    return destPath;
-  };
+  });
+  ipcMain.handle("install-plugin-from-store", async (event, plugin) => {
+    if (!plugin?.downloadUrl) {
+      return { success: false, error: "Lien de téléchargement manquant" };
+    }
+
+    const plugins = store.get("plugins", []);
+    const alreadyInstalled = plugins.find(p => p.downloadUrl === plugin.downloadUrl || p.name === plugin.name);
+    if (alreadyInstalled) {
+      return { success: true, plugin: alreadyInstalled, alreadyInstalled: true };
+    }
+
+    try {
+      const appPluginPath = await downloadPluginToAppFolder(plugin.downloadUrl, `${plugin.name || "plugin"}.js`);
+      const metadata = getPluginMetadata(appPluginPath);
+      const newPlugin = {
+        name: plugin.name || path.basename(appPluginPath, ".js"),
+        path: appPluginPath,
+        enabled: true,
+        author: metadata.author || plugin.creator || null,
+        github: metadata.github || plugin.githubUrl || null,
+        version: metadata.version || null,
+        downloadUrl: plugin.downloadUrl,
+        source: plugin.source || "store"
+      };
+
+      plugins.push(newPlugin);
+      store.set("plugins", plugins);
+      return { success: true, plugin: newPlugin };
+    } catch (error) {
+      console.error("Erreur installation plugin store:", error);
+      return { success: false, error: "Échec du téléchargement du plugin" };
+    }
+  });
 
   // --- SÉLECTION DES PLUGINS AMÉLIORÉE (AUTEUR + GITHUB + VERSION) ---
   ipcMain.handle("select-plugin-file", async () => {
@@ -616,37 +1018,15 @@ app.whenReady().then(() => {
       return { success: false, error: "Erreur lors de la copie du plugin" };
     }
 
-    // DÉTECTION METADATA à partir du chemin source
-    let detectedAuthor = null;
-    let detectedGithub = null;
-    let detectedVersion = null;
-
-    try {
-      const content = fs.readFileSync(pPath, 'utf8');
-
-      // Auteur
-      const matchAuthor = content.match(/\/\/\s*@author\s+(.*)/i);
-      if (matchAuthor && matchAuthor[1]) detectedAuthor = matchAuthor[1].trim();
-
-      // Github
-      const matchGithub = content.match(/\/\/\s*@github\s+(.*)/i);
-      if (matchGithub && matchGithub[1]) detectedGithub = matchGithub[1].trim();
-
-      // Version (Nouveau)
-      const matchVersion = content.match(/\/\/\s*@version\s+(.*)/i);
-      if (matchVersion && matchVersion[1]) detectedVersion = matchVersion[1].trim();
-
-    } catch (e) {
-      console.error("Erreur lecture metadata:", e);
-    }
+    const metadata = getPluginMetadata(pPath);
 
     const newPlugin = {
       name: path.basename(pPath, '.js'),
                  path: appPluginPath,
                  enabled: true,
-                 author: detectedAuthor,
-                 github: detectedGithub,
-                 version: detectedVersion // Sauvegarde de la version
+                 author: metadata.author,
+                 github: metadata.github,
+                 version: metadata.version
     };
 
     plugins.push(newPlugin);

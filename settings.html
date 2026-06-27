@@ -255,6 +255,12 @@
         </div>
         <div style="margin-bottom: 16px;"><button id="btnAddPlugin" class="btn-secondary" style="width: 100%;" data-i18n="addPluginBtn">Ajouter un plugin</button></div>
         <div id="plugin-list"><div style="text-align: center; color: var(--text-muted); padding: 20px;">Chargement...</div></div>
+        <div style="margin: 20px 0 12px; border-top: 1px solid var(--border-color);"></div>
+        <div class="settings-box" style="margin-bottom: 16px;">
+          <label data-i18n="storeTitle">Store officiel</label>
+          <span class="sub-label" data-i18n="storeDesc">Télécharge automatiquement les plugins disponibles depuis le store officiel.</span>
+          <div id="plugin-store-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
       </div>
 
       <div id="about" class="section">
@@ -361,6 +367,7 @@
           
           // Charger les plugins et URLs custom avec gestion d'erreur
           loadPluginsList().catch(e => console.error('Erreur chargement plugins:', e));
+          loadPluginStore().catch(e => console.error('Erreur chargement store:', e));
           loadCustomUrls().catch(e => console.error('Erreur chargement URLs custom:', e));
           
         } catch(e) { 
@@ -369,6 +376,7 @@
           langSelect.value = 'en';
           updateTexts('en');
           loadPluginsList().catch(e => console.error('Erreur chargement plugins:', e));
+          loadPluginStore().catch(e => console.error('Erreur chargement store:', e));
           loadCustomUrls().catch(e => console.error('Erreur chargement URLs custom:', e));
         }
       } else {
@@ -509,6 +517,62 @@
 
       document.getElementById('btnReset').addEventListener('click', async () => { if(confirm('Tout effacer ?')) await window.electronAPI.resetApp(); });
       document.getElementById('btnAddPlugin').addEventListener('click', async () => { await window.electronAPI.selectPluginFile(); loadPluginsList(); });
+
+      async function loadPluginStore() {
+        const list = document.getElementById('plugin-store-list');
+        if (!list) return;
+
+        const currentLang = langSelect.value;
+        const t = translations[currentLang] || translations.fr || {};
+        const storeStrings = t.settings || {};
+        list.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 12px;">${storeStrings.storeLoading || 'Chargement du store...'}</div>`;
+
+        try {
+          const result = await window.electronAPI.getPluginStore();
+          if (!result.success || !Array.isArray(result.plugins) || result.plugins.length === 0) {
+            list.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 12px;">${storeStrings.storeEmpty || 'Aucun plugin disponible pour le moment.'}</div>`;
+            return;
+          }
+
+          list.innerHTML = '';
+          const plugins = result.plugins.slice(0, 6);
+          const installedPlugins = await window.electronAPI.getPlugins();
+          const installedNames = new Set((installedPlugins || []).map(p => p.name?.toLowerCase()));
+
+          plugins.forEach(plugin => {
+            const card = document.createElement('div');
+            card.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border-color); border-radius:6px; background: var(--bg-surface);';
+
+            const info = document.createElement('div');
+            info.style.flex = '1';
+            info.innerHTML = `<div style="font-weight:600; margin-bottom:2px;">${plugin.name}</div><div style="font-size:11px; color: var(--text-muted);">${plugin.description || 'Plugin officiel'}</div>`;
+
+            const action = document.createElement('button');
+            action.className = 'btn-secondary';
+            action.textContent = installedNames.has(plugin.name?.toLowerCase()) ? (storeStrings.storeInstalled || 'Installé') : (storeStrings.storeInstall || 'Installer');
+            action.disabled = installedNames.has(plugin.name?.toLowerCase());
+            action.addEventListener('click', async () => {
+              action.disabled = true;
+              action.textContent = storeStrings.storeDownloading || 'Téléchargement...';
+              const installResult = await window.electronAPI.installPluginFromStore(plugin);
+              if (installResult.success) {
+                action.textContent = storeStrings.storeInstalled || 'Installé';
+                await loadPluginsList();
+              } else {
+                action.textContent = 'Échec';
+                console.error('Erreur installation plugin store:', installResult.error);
+              }
+            });
+
+            card.appendChild(info);
+            card.appendChild(action);
+            list.appendChild(card);
+          });
+        } catch (error) {
+          console.error('Erreur chargement store:', error);
+          list.innerHTML = `<div style="text-align: center; color: #f85149; padding: 12px;">${storeStrings.storeLoadError || 'Impossible de charger le store.'}</div>`;
+        }
+      }
 
       const open = (url) => window.electronAPI.openExternal(url);
 
