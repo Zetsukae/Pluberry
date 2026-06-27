@@ -51,7 +51,7 @@ If you want to contribute to the application source code or build your own versi
 ### 1. Clone the repository
 ```bash
 git clone https://github.com/Zetsukae/Pluberry.git
-cd streamix
+cd Pluberry
 ```
 
 ### 2. Install dependencies
@@ -78,7 +78,7 @@ npm run build:linux
 ## Technical Structure
 
 ```
-pluberry/
+Pluberry/
 ├── main.js                   # Main process (security, windows, IPC)
 ├── preload.js                # Secure renderer bridge (ContextBridge)
 ├── contextMenu.js            # Right-click context menu handler
