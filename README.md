@@ -17,7 +17,7 @@ Pluberry is available for **Windows** and **Linux**.
 
 | System | Type | Link |
 | :--- | :--- | :--- |
-| **Windows** | `.exe` installer | Patch in progress |
+| **Windows** | `.exe` installer | Available |
 | **Linux** | Portable `.AppImage` | Available |
 
 > *Windows download links may be added a few days after Linux. Check the [Releases] tab regularly.*
