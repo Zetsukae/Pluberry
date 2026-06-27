@@ -26,11 +26,6 @@ Pluberry is available for **Windows** and **Linux**.
 
 ## Features
 
-### Advanced Security
-* **Source Protection**: Uses a unique header (`X-Streamix-Key`) and a custom User-Agent signature (`StreamixApp`) to restrict access to supported sources.
-* **Secure Browsing**: Restricts navigation to **GitHub Pages** domains (`.github.io`) to avoid loading malicious scripts.
-* **Isolation**: Each source runs in a sandboxed environment.
-
 ### UI & Localization
 * **Multilingual**: Fully translated interface in **French, English, Spanish, German, and Japanese**.
 * **Window Styles**:
@@ -107,13 +102,6 @@ pluberry/
 * Multi-platform build output in `dist/`
 * Cleaner structure separating core logic, UI, and backend integration
 
-### Security Mechanism
-The application automatically injects the following into requests to sources:
-* **Header**: `X-Streamix-Key: zetsukaedagoat`
-* **User-Agent**: Appends the `StreamixApp` suffix
-
-This allows source providers to verify the request comes from the official app while blocking standard browser access.
-
 ---
 
 ## Legal Notice
@@ -131,5 +119,5 @@ This allows source providers to verify the request comes from the official app w
 Project conceived and developed by **Zetsukae**.
 
 * **License**: MIT
-* **Discord** : [Rejoindre la communauté](https://discord.gg/u3SwvGVvGD)
-* **Site Web** : [uniware.site](https://uniware.site)
+* **Discord** : [Join the community](https://discord.gg/u3SwvGVvGD)
+* **Web Site** : [Pluberry Official Website](https://pluberry.com/)
