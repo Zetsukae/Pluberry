@@ -59,7 +59,7 @@
       "signAndEditExecutable": false,
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]

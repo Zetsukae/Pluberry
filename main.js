@@ -13,6 +13,23 @@ loadDotEnv([
 // Import du menu clic droit
 const setupContextMenu = require("./contextMenu")
 
+// Helper pour résoudre les chemins des ressources (important pour Windows packaging)
+function getResourcePath(filename) {
+  const candidates = [
+    path.join(__dirname, filename),
+    path.join(app.getAppPath(), filename),
+    path.join(process.resourcesPath || '', filename)
+  ];
+  
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) {
+      return p;
+    }
+  }
+  
+  return path.join(__dirname, filename);
+}
+
 const store = new Store({
   defaults: {
     config: {
@@ -117,7 +134,7 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    icon: path.join(__dirname, "assets", "icon.png"),
+    icon: getResourcePath(path.join("assets", "icon.png")),
                                  webPreferences: {
                                    nodeIntegration: false,
                                    contextIsolation: true,
@@ -164,8 +181,8 @@ function createWindow() {
 
   // Démarrage
   const url = config.sourceUrl || "";
-  const validSites = ["franime.fr", "anime-sama.pw", "mangas-origines.fr"];
-  if (url && validSites.some(site => url.includes(site))) {
+  // Vérifier que c'est une URL valide (http/https)
+  if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
     mainWindow.loadURL(url)
   } else {
     loadSetupScreen()
@@ -192,7 +209,7 @@ function createWindow() {
       // A. Animation CSS
       if (config.animationsEnabled !== false) {
         try {
-          const cssPath = path.join(__dirname, 'animations.css');
+          const cssPath = getResourcePath('animations.css');
           if (fs.existsSync(cssPath)) {
             const cssContent = fs.readFileSync(cssPath, 'utf8');
             mainWindow.webContents.insertCSS(cssContent);
@@ -229,7 +246,7 @@ function createWindow() {
 
         const homeBtn = document.createElement('button'); homeBtn.className = 'streamix-btn'; homeBtn.id = 'streamix-home-btn';
         homeBtn.style.cssText = 'position: fixed !important; top: 10px !important; left: 10px !important; background: transparent !important; backdrop-filter: none !important;';
-        homeBtn.innerHTML = '<img src="https://i.imgur.com/IuzfeVB.png" alt="Home">';
+        homeBtn.innerHTML = '<img src="https://i.imgur.com/d4fqsPg.png" alt="Home">';
         homeBtn.onclick = () => window.electronAPI.triggerF1Menu();
         root.appendChild(homeBtn);
 
@@ -386,7 +403,14 @@ function injectF1MenuScript(win) {
   win.webContents.executeJavaScript(menuScript).catch(console.error);
 }
 
-function loadSetupScreen() { mainWindow.loadFile(path.join(__dirname, "setup.html")); }
+function loadSetupScreen() {
+  const setupPath = getResourcePath("setup.html");
+  mainWindow.loadFile(setupPath).catch(err => {
+    console.error("Failed to load setup.html from:", setupPath, err);
+    // Emergency fallback: just display error
+    mainWindow.webContents.loadURL("data:text/html,<h1>Erreur: Impossible de charger le fichier de configuration</h1>").catch(console.error);
+  });
+}
 
 function registerSupabaseHandlers() {
   if (supabaseHandlersRegistered) return;
@@ -517,7 +541,6 @@ app.whenReady().then(() => {
     const siteMap = {
       "franime": "https://franime.fr/",
       "anime-sama": "https://anime-sama.pw/",
-      "mangas-origines": "https://mangas-origines.fr/"
     };
     
     // Si sourceUrl n'est pas déjà fourni (pour les URLs custom), le mapper depuis selectedSite
@@ -672,9 +695,9 @@ app.whenReady().then(() => {
     settingsWindow = new BrowserWindow({
       width: 800, height: 600, resizable: false, parent: mainWindow, modal: false,
       frame: false, show: false, backgroundColor: "#0d1117",
-      webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, "preload.js") }
+      webPreferences: { nodeIntegration: false, contextIsolation: true, preload: getResourcePath("preload.js") }
     });
-    settingsWindow.loadFile(path.join(__dirname, "settings.html"));
+    settingsWindow.loadFile(getResourcePath("settings.html"));
     settingsWindow.webContents.on('before-input-event', (event, input) => {
       if (input.key === 'F12' || (input.control && input.shift && input.key === 'i')) {
         settingsWindow.webContents.toggleDevTools();
