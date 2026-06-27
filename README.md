@@ -50,7 +50,7 @@ If you want to contribute to the application source code or build your own versi
 
 ### 1. Clone the repository
 ```bash
-git clone [https://github.com/zetsukae/streamix](https://github.com/zetsukae/streamix)
+git clone [https://github.com/zetsukae/streamix](https://github.com/zetsukae/Pluberry)
 cd streamix
 ```
 
