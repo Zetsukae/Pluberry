@@ -34,6 +34,7 @@ function updateDownloadLinks() {
     let url = DOWNLOAD_URLS.other;
     let message = "Voir les versions";
     let available = true;
+    const isAndroid = os === 'Android';
 
     if (os === 'Windows') {
         url = DOWNLOAD_URLS.windows;
@@ -41,14 +42,25 @@ function updateDownloadLinks() {
     } else if (os === 'Linux') {
         url = DOWNLOAD_URLS.linux;
         message = "Download for Linux";
-    } else if (['macOS', 'Android', 'iOS'].includes(os)) {
+    } else if (['macOS', 'iOS'].includes(os)) {
         message = `Not available on ${os}`;
+        available = false;
+    } else if (isAndroid) {
+        url = "notAvailable/";
+        message = "Not available on Android";
         available = false;
     }
 
     [heroBtn, mainBtn].forEach(btn => {
         btn.href = url;
-        if (!available) {
+        if (isAndroid) {
+            btn.style.opacity = "0.7";
+            btn.style.cursor = "pointer";
+            btn.onclick = (e) => {
+                e.preventDefault();
+                window.location.href = url;
+            };
+        } else if (!available) {
             btn.style.opacity = "0.5";
             btn.style.cursor = "not-allowed";
             btn.onclick = (e) => e.preventDefault();
@@ -60,30 +72,32 @@ function updateDownloadLinks() {
 }
 
 /**
- * Bulles animées
+ * Nuages doux animés
  */
 function createBubbles() {
     const container = document.getElementById("bubbles")
     if (!container) return
-    const bubbleCount = 15
+    const bubbleCount = 12
     for (let i = 0; i < bubbleCount; i++) { createBubble(container) }
     setInterval(() => {
-        if (container.children.length < 20) { createBubble(container) }
-    }, 3000)
+        if (container.children.length < 16) { createBubble(container) }
+    }, 4000)
 }
 
 function createBubble(container) {
     const bubble = document.createElement("div")
     bubble.className = "bubble"
-    const size = Math.random() * 50 + 10
+    const size = Math.random() * 80 + 40
     bubble.style.width = `${size}px`
-    bubble.style.height = `${size}px`
+    bubble.style.height = `${size * 0.6}px`
     bubble.style.left = `${Math.random() * 100}%`
-    const duration = Math.random() * 15 + 15
+    const opacity = Math.random() * 0.18 + 0.08
+    bubble.style.opacity = `${opacity}`
+    const duration = Math.random() * 22 + 22
     bubble.style.animationDuration = `${duration}s`
-    bubble.style.animationDelay = `${Math.random() * 5}s`
+    bubble.style.animationDelay = `${Math.random() * 6}s`
     container.appendChild(bubble)
-    setTimeout(() => { if (bubble.parentNode) { bubble.parentNode.removeChild(bubble) } }, (duration + 5) * 1000)
+    setTimeout(() => { if (bubble.parentNode) { bubble.parentNode.removeChild(bubble) } }, (duration + 6) * 1000)
 }
 
 document.addEventListener("DOMContentLoaded", () => {
