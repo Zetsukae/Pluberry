@@ -2,53 +2,49 @@ let pendingUrl = ""
 
 function createBubbles() {
   const container = document.getElementById("bubbles")
-  const bubbleCount = 15
+  if (!container) return
+  const bubbleCount = 12
 
   for (let i = 0; i < bubbleCount; i++) {
     createBubble(container)
   }
 
-  // Créer de nouvelles bulles périodiquement
   setInterval(() => {
-    if (container.children.length < 20) {
+    if (container.children.length < 16) {
       createBubble(container)
     }
-  }, 3000)
+  }, 4000)
 }
 
 function createBubble(container) {
   const bubble = document.createElement("div")
   bubble.className = "bubble"
 
-  // Taille aléatoire entre 10px et 60px
-  const size = Math.random() * 50 + 10
+  const size = Math.random() * 80 + 40
   bubble.style.width = `${size}px`
-  bubble.style.height = `${size}px`
-
-  // Position horizontale aléatoire
+  bubble.style.height = `${size * 0.6}px`
   bubble.style.left = `${Math.random() * 100}%`
 
-  // Durée d'animation lente (15-30 secondes)
-  const duration = Math.random() * 15 + 15
-  bubble.style.animationDuration = `${duration}s`
+  const opacity = Math.random() * 0.18 + 0.08
+  bubble.style.opacity = `${opacity}`
 
-  // Délai aléatoire
-  bubble.style.animationDelay = `${Math.random() * 5}s`
+  const duration = Math.random() * 22 + 22
+  bubble.style.animationDuration = `${duration}s`
+  bubble.style.animationDelay = `${Math.random() * 6}s`
 
   container.appendChild(bubble)
 
-  // Supprimer la bulle après l'animation
   setTimeout(
     () => {
       if (bubble.parentNode) {
         bubble.parentNode.removeChild(bubble)
       }
     },
-    (duration + 5) * 1000,
+    (duration + 6) * 1000,
   )
 }
 
-// Initialiser les bulles au chargement
+// Initialiser les nuages au chargement
 document.addEventListener("DOMContentLoaded", createBubbles)
 
 function showWarningModal(url) {
