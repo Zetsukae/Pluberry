@@ -2,6 +2,7 @@
 const DOWNLOAD_URLS = {
     windows: "https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-1.2.26-BeyondAdvance/Pluberry.Setup.1.2.26.exe",
     linux: "https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-1.2.26-BeyondAdvance/Pluberry-1.2.26.AppImage",
+    macos: "https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-1.2.26-BeyondAdvance/Pluberry-1.2.26.dmg",
     other: "https://github.com/Zetsukae/Pluberry/releases"
 };
 
@@ -42,7 +43,10 @@ function updateDownloadLinks() {
     } else if (os === 'Linux') {
         url = DOWNLOAD_URLS.linux;
         message = "Download for Linux";
-    } else if (['macOS', 'iOS'].includes(os)) {
+    } else if (os === 'macOS') {
+        url = DOWNLOAD_URLS.macos;
+        message = "Download for macOS";
+    } else if (os === 'iOS') {
         message = `Not available on ${os}`;
         available = false;
     } else if (isAndroid) {
@@ -64,6 +68,10 @@ function updateDownloadLinks() {
             btn.style.opacity = "0.5";
             btn.style.cursor = "not-allowed";
             btn.onclick = (e) => e.preventDefault();
+        } else {
+            btn.style.opacity = "1";
+            btn.style.cursor = "pointer";
+            btn.onclick = null;
         }
     });
 
@@ -71,9 +79,6 @@ function updateDownloadLinks() {
     if (mainText) mainText.innerText = message;
 }
 
-/**
- * Nuages doux animés
- */
 function createBubbles() {
     const container = document.getElementById("bubbles")
     if (!container) return
