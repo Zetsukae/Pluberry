@@ -4,7 +4,7 @@
 
 ![Version](https://img.shields.io/badge/version-1.2.26-blue?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey?style=flat-square)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20MacOS-lightgrey?style=flat-square)
 ![Status](https://img.shields.io/badge/status-Stable-success?style=flat-square)
 
 **Pluberry** is an open-source desktop application built with **Electron**. It centralizes your favorite streaming sources (anime, series) into a unified, secure interface that removes the usual browser distractions.
@@ -19,6 +19,7 @@ Pluberry is available for **Windows** and **Linux**.
 | :--- | :--- | :--- |
 | **Windows** | `.exe` installer | Available |
 | **Linux** | Portable `.AppImage` | Available |
+| **MacOS** | Portable `.dmg` | Available |
 
 > *Windows download links may be added a few days after Linux. Check the [Releases] tab regularly.*
 
