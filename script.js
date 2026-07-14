@@ -2,9 +2,88 @@
 const DOWNLOAD_URLS = {
     windows: "https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-1.2.26-BeyondAdvance/Pluberry.Setup.1.2.26.exe",
     linux: "https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-1.2.26-BeyondAdvance/Pluberry-1.2.26.AppImage",
-    macos: "https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-1.2.26-BeyondAdvance/Pluberry-1.2.26.dmg",
+    macos: "https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-1.2.26-BeyondAdvance/Pluberry-1.2.26-universal.dmg",
     other: "https://github.com/Zetsukae/Pluberry/releases"
 };
+
+const RELEASES_API_URL = "https://api.github.com/repos/Zetsukae/Pluberry/releases/latest";
+const FALLBACK_VERSION = "1.2.26";
+const FALLBACK_TAG = "v1.2.26";
+
+function getVersionFromTag(tagName) {
+    const match = tagName.match(/(\d+(?:\.\d+){1,3})/);
+    return match ? match[1] : null;
+}
+
+function getDisplayTag(tagName, version) {
+    if (!tagName) return `v${version}`;
+    if (tagName.startsWith('v')) return tagName;
+    return `v${version}`;
+}
+
+function buildDownloadUrls(version) {
+    return {
+        windows: `https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-${version}-BeyondAdvance/Pluberry.Setup.${version}.exe`,
+        linux: `https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-${version}-BeyondAdvance/Pluberry-${version}.AppImage`,
+        macos: `https://github.com/Zetsukae/Pluberry/releases/download/Pluberry-${version}-BeyondAdvance/Pluberry-${version}-universal.dmg`,
+        other: "https://github.com/Zetsukae/Pluberry/releases"
+    };
+}
+
+function setVersionInfo(tagName, version) {
+    const versionTag = document.getElementById('versionTag');
+    const versionText = document.getElementById('versionText');
+    const downloadTitle = document.getElementById('downloadTitle');
+    const downloadSubtitle = document.getElementById('downloadSubtitle');
+
+    if (versionTag) {
+        versionTag.textContent = `${tagName} Stable`;
+    }
+
+    if (versionText) {
+        versionText.textContent = 'Latest stable release';
+    }
+
+    if (downloadTitle) {
+        downloadTitle.textContent = `Pluberry ${tagName}`;
+    }
+
+    if (downloadSubtitle) {
+        downloadSubtitle.textContent = `${version} • latest stable version`;
+    }
+}
+
+async function loadLatestStableRelease() {
+    try {
+        const response = await fetch(RELEASES_API_URL, {
+            headers: {
+                Accept: 'application/vnd.github+json',
+                'User-Agent': 'Mozilla/5.0'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Unable to fetch GitHub releases');
+        }
+
+        const release = await response.json();
+        const version = getVersionFromTag(release.tag_name);
+
+        if (!version) {
+            throw new Error('Release tag does not match expected pattern');
+        }
+
+        const displayTag = getDisplayTag(release.tag_name, version);
+        Object.assign(DOWNLOAD_URLS, buildDownloadUrls(version));
+        setVersionInfo(displayTag, version);
+    } catch (error) {
+        console.warn('Unable to load latest stable release, using fallback values:', error);
+        Object.assign(DOWNLOAD_URLS, buildDownloadUrls(FALLBACK_VERSION));
+        setVersionInfo(FALLBACK_TAG, FALLBACK_VERSION);
+    } finally {
+        updateDownloadLinks();
+    }
+}
 
 /**
  * Détecte le système d'exploitation
@@ -107,7 +186,7 @@ function createBubble(container) {
 
 document.addEventListener("DOMContentLoaded", () => {
     createBubbles();
-    updateDownloadLinks();
+    loadLatestStableRelease();
 
     // Smooth scroll
     document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
