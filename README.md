@@ -90,23 +90,30 @@ npm run build:mac
 
 ```
 Pluberry/
-├── main.js                   # Main Electron process entry point
-├── preload.js                # Secure renderer bridge
-├── contextMenu.js            # Right-click context menu handler
-├── locales.js                # FR / EN / ES / DE / JA translations
-├── env-loader.js             # Environment configuration loader
-├── supabase.js               # Supabase auth and source sync integration
+├── package.json              # Project scripts and Electron dependencies
+├── pluberry-supabase-auth.json
+├── launcher/                 # App launcher and configuration files
 ├── src/
+│   ├── main.js               # Main Electron process entry point
+│   ├── preload.js            # Secure renderer bridge
+│   ├── contextMenu.js        # Right-click context menu handler
+│   ├── locales.js            # FR / EN / ES / DE / JA translations
+│   ├── animations/           # UI animations styles and assets
+│   ├── assets/               # Icons, images, and static assets
+│   ├── backend/
+│   │   ├── env-loader.js     # Environment configuration loader
+│   │   ├── supabase.js       # Supabase auth and source sync integration
+│   │   ├── supabase_schema.sql
+│   │   └── README.md         # Backend setup guide
+│   ├── interface/
+│   │   ├── settings.html     # Settings UI
+│   │   └── setup.html        # First-run setup UI
 │   └── main/
-│       ├── app-config.js    # Shared resource-path helpers
+│       ├── app-config.js     # Shared resource-path helpers
 │       └── oauth-helpers.js # OAuth callback helpers for loopback auth
-├── test/                     # Automated regression tests
-├── settings.html             # Settings UI
-├── setup.html                # First-run setup UI
-├── animations.css            # UI animations
-├── assets/                   # Icons, images, and static assets
-├── launcher/                 # App launcher / configuration files
-└── dist/                     # Build outputs (installer / bundle)
+├── test/
+│   └── oauth.test.js        # Automated regression tests
+└── dist/                     # Build outputs (generated during packaging)
 ```
 
 ### What's New
