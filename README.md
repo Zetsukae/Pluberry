@@ -2,7 +2,7 @@
 
 > **A centralized, secure, and immersive streaming experience.**
 
-![Version](https://img.shields.io/badge/version-1.2.26-blue?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.3.26-blue?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20MacOS-lightgrey?style=flat-square)
 ![Status](https://img.shields.io/badge/status-Stable-success?style=flat-square)
