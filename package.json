@@ -1,12 +1,13 @@
 {
   "name": "Pluberry",
-  "version": "1.2.26",
+  "version": "1.3.26",
   "description": "Application regroupant toutes vos sources de streaming!",
   "author": "Zetsukae",
-  "main": "main.js",
+  "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
+    "test": "node --test test/*.test.js",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
@@ -28,36 +29,36 @@
     "productName": "Pluberry",
     "directories": {
       "output": "dist",
-      "buildResources": "assets"
+      "buildResources": "src/assets"
     },
     "files": [
-      "main.js",
-      "contextMenu.js",
-      "locales.js",
-      "preload.js",
-      "supabase.js",
-      "env-loader.js",
-      ".env",
+      "src/main.js",
+      "src/contextMenu.js",
+      "src/locales.js",
+      "src/preload.js",
+      "src/backend/supabase.js",
+      "src/backend/",
+      "src/**/*",
+      "src/backend/.env",
       "*.html",
       "*.css",
-      "assets/**/*"
+      "/src/assets/**/*"
     ],
     "mac": {
-      "icon": "assets/icon.icns",
+      "icon": "src/assets/icon.icns",
       "category": "public.app-category.productivity",
       "target": [
         {
           "target": "dmg",
           "arch": [
-            "x64",
-            "arm64"
+            "universal"
           ]
         }
       ]
     },
     "win": {
-      "icon": "assets/icon.ico",
-      "signAndEditExecutable": false,
+      "icon": "src/assets/icon.ico",
+      "signAndEditExecutable": true,
       "target": [
         {
           "target": "nsis",
@@ -69,7 +70,7 @@
       "publisherName": "Zetsukae"
     },
     "linux": {
-      "icon": "assets/icon.png",
+      "icon": "src/assets/icon.png",
       "category": "Utility",
       "target": [
         {
@@ -86,9 +87,9 @@
       "shortcutName": "Pluberry",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico",
-      "installerHeaderIcon": "assets/icon.ico"
+      "installerIcon": "src/assets/icon.ico",
+      "uninstallerIcon": "src/assets/icon.ico",
+      "installerHeaderIcon": "src/assets/icon.ico"
     }
   }
 }

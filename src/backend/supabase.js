@@ -1,10 +1,12 @@
 const http = require('node:http');
 const path = require('node:path');
 const { app, shell, BrowserWindow } = require('electron');
+const fs = require('node:fs');
 const { createClient } = require('@supabase/supabase-js');
 const Store = require('electron-store');
-const { locales } = require('./locales');
+const { locales } = require('../locales');
 const { loadDotEnv } = require('./env-loader');
+const { resolveOAuthCallbackConfig, isOAuthCallbackRequest } = require('../main/oauth-helpers');
 
 loadDotEnv([
   path.join(__dirname, '.env'),
@@ -13,12 +15,18 @@ loadDotEnv([
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
-const OAUTH_CALLBACK_HOST = process.env.SUPABASE_REDIRECT_HOST || '127.0.0.1';
-const OAUTH_CALLBACK_PORT = process.env.SUPABASE_REDIRECT_PORT || '9999';
-const OAUTH_CALLBACK_PATH = process.env.SUPABASE_REDIRECT_PATH || '/auth/callback';
-const SUPABASE_REDIRECT_URL = process.env.SUPABASE_REDIRECT_URL || `http://localhost:${OAUTH_CALLBACK_PORT}${OAUTH_CALLBACK_PATH}`;
+const oAuthConfig = resolveOAuthCallbackConfig({
+  platform: process.platform,
+  env: process.env,
+  port: process.env.SUPABASE_REDIRECT_PORT || '9999',
+  path: process.env.SUPABASE_REDIRECT_PATH || '/auth/callback',
+});
+const OAUTH_CALLBACK_HOST = oAuthConfig.host;
+const OAUTH_CALLBACK_PORT = String(oAuthConfig.port);
+const OAUTH_CALLBACK_PATH = oAuthConfig.path;
+const SUPABASE_REDIRECT_URL = process.env.SUPABASE_REDIRECT_URL || oAuthConfig.redirectUrl;
 
-const authStore = new Store({ name: 'streamix-supabase-auth', fileExtension: 'json', cwd: process.cwd() });
+const authStore = new Store({ name: 'pluberry-supabase-auth', fileExtension: 'json', cwd: process.cwd() });
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.warn('Supabase: SUPABASE_URL or SUPABASE_ANON_KEY not set in environment');
@@ -36,7 +44,7 @@ const customStorage = {
   }
 };
 
-const CUSTOM_PROTOCOL = process.env.STREAMIX_PROTOCOL || 'streamix';
+const CUSTOM_PROTOCOL = process.env.PLUBERRY_PROTOCOL || 'pluberry';
 const CUSTOM_PROTOCOL_SUCCESS_URL = `${CUSTOM_PROTOCOL}://auth-success`;
 
 let supabase = null;
@@ -62,7 +70,7 @@ function resolveLanguage(requestUrl, headers = {}) {
   const fromQuery = requestUrl?.searchParams?.get('lang') || requestUrl?.searchParams?.get('language') || requestUrl?.searchParams?.get('locale');
   if (fromQuery) return normalizeLocaleCode(fromQuery);
 
-  const envLang = process.env.STREAMIX_APP_LANG || process.env.APP_LANG;
+  const envLang = process.env.PLUBERRY_APP_LANG || process.env.APP_LANG;
   if (envLang) return normalizeLocaleCode(envLang);
 
   const acceptLanguage = headers['accept-language'] || headers['Accept-Language'] || '';
@@ -78,10 +86,33 @@ function resolveLanguage(requestUrl, headers = {}) {
   return 'en';
 }
 
+function extractOAuthTokens(requestUrl) {
+  try {
+    const searchParams = requestUrl?.searchParams || new URLSearchParams();
+    const hashParams = new URLSearchParams((requestUrl?.hash || '').replace(/^#/, ''));
+
+    return {
+      accessToken: searchParams.get('access_token') || hashParams.get('access_token') || '',
+      refreshToken: searchParams.get('refresh_token') || hashParams.get('refresh_token') || '',
+      error: searchParams.get('error') || hashParams.get('error') || ''
+    };
+  } catch (error) {
+    console.warn('Supabase: unable to parse OAuth callback params:', error);
+    return { accessToken: '', refreshToken: '', error: '' };
+  }
+}
+
 function getAuthPageContent({ success, lang, details }) {
   const safeLang = 'en';
   const locale = locales.en;
   const t = locale.auth || {};
+  if (!t.successFallback) t.successFallback = 'Return to Pluberry';
+  // Normalize any remaining product-name occurrences in the localized strings
+  try {
+    Object.keys(t).forEach((k) => {
+      if (typeof t[k] === 'string') t[k] = t[k].replace(/Streamix/g, 'Pluberry');
+    });
+  } catch (_) {}
 
   if (success) {
     return `<!doctype html><html lang="${safeLang}"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${t.successTitle || 'Connection successful'}</title><style>body{margin:0;font-family:Inter,Arial,sans-serif;background:#0d1117;color:#f0f6fc;display:grid;place-items:center;height:100vh} .card{background:linear-gradient(135deg,#161b22,#1f2937);border:1px solid #30363d;border-radius:18px;padding:32px 36px;max-width:440px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35)} h1{margin:0 0 10px;font-size:24px;font-weight:600} p{margin:0;color:#8b949e;line-height:1.6} .pill{display:inline-block;margin-top:16px;padding:8px 12px;border-radius:999px;background:rgba(35,134,54,.15);color:#3fb950;font-size:13px;border:1px solid rgba(63,185,80,.25)} .btn{display:inline-block;margin-top:14px;padding:10px 14px;border-radius:8px;background:#238636;color:#fff;border:none;cursor:pointer;font-weight:600}</style></head><body><div class="card"><h1>${t.successTitle || 'Connection successful'}</h1><p>${t.successMessage || 'Your session has been established.'}</p><div class="pill" id="statusText">${t.successStatus || 'Returning to the app...'}</div><div id="manualFallback" style="display:none;margin-top:14px"><button class="btn" onclick="window.location.href='${CUSTOM_PROTOCOL_SUCCESS_URL}'">${t.successFallback || 'Return to Streamix'}</button></div></div><script>const returnUrl='${CUSTOM_PROTOCOL_SUCCESS_URL}'; const statusText=document.getElementById('statusText'); const manualFallback=document.getElementById('manualFallback'); const startRedirect=()=>{ try{ window.location.replace(returnUrl); } catch(err){} setTimeout(()=>{ try{ window.open(returnUrl, '_self'); } catch(err){} }, 250); setTimeout(()=>{ manualFallback.style.display='block'; statusText.textContent='${(t.successFallbackText || 'If the app does not open automatically, use the button below.').replace(/'/g, "\\'")}' }, 1200); }; window.addEventListener('load', startRedirect); setTimeout(()=>{ try{ window.close(); } catch(err){} }, 2200);</script></body></html>`;
@@ -90,7 +121,7 @@ function getAuthPageContent({ success, lang, details }) {
   return `<!doctype html><html lang="${safeLang}"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${t.errorTitle || 'Connection failed'}</title><style>body{margin:0;font-family:Inter,Arial,sans-serif;background:#0d1117;color:#f0f6fc;display:grid;place-items:center;height:100vh} .card{background:#161b22;border:1px solid #30363d;border-radius:16px;padding:28px 32px;max-width:420px;text-align:center;box-shadow:0 10px 35px rgba(0,0,0,.35)} h1{margin:0 0 10px;font-size:22px} p{margin:0;color:#8b949e;line-height:1.5}</style></head><body><div class="card"><h1>${t.errorTitle || 'Connection failed'}</h1><p>${details?.message || t.errorMessage || 'The connection could not be completed.'}</p></div></body></html>`;
 }
 
-function focusStreamixWindows() {
+function focusPluberryWindows() {
   BrowserWindow.getAllWindows().forEach((win) => {
     if (!win || win.isDestroyed()) return;
     if (win.isMinimized()) win.restore();
@@ -99,11 +130,66 @@ function focusStreamixWindows() {
   });
 }
 
+// More aggressive focus helper that attempts to ensure the app gains focus
+function focusAndSteal() {
+  try {
+    focusPluberryWindows();
+  } catch (err) {
+    // ignore
+  }
+
+  try {
+    // Try to focus the currently focused BrowserWindow if available
+    const focused = BrowserWindow.getFocusedWindow && BrowserWindow.getFocusedWindow();
+    if (focused && !focused.isDestroyed()) {
+      try { focused.show(); } catch (e) {}
+      try { focused.focus(); } catch (e) {}
+    }
+  } catch (e) {}
+
+  try {
+    // Try to request the OS focus for the application (Electron supports options on some platforms)
+    if (typeof app.focus === 'function') {
+      try { app.focus({ steal: true }); } catch (e) { try { app.focus(); } catch (_) {} }
+    }
+  } catch (e) {}
+}
+
 function registerDeepLinkProtocol() {
+  // Avoid registering the protocol during development to prevent incorrect
+  // executable paths (like C:\\WINDOWS\\system32) from being used. Only
+  // register when the app is packaged, unless explicitly forced via env.
   if (typeof app?.setAsDefaultProtocolClient !== 'function') return;
+  if (!app.isPackaged && !process.env.SUPABASE_FORCE_PROTOCOL_REGISTER) {
+    console.info('Skipping protocol registration in development mode');
+    return;
+  }
+  // Protocol registration occurs only for packaged apps by default.
+
+  // Try to remove any previous registration for this protocol before setting it.
+  try {
+    if (typeof app.removeAsDefaultProtocolClient === 'function') {
+      try {
+        app.removeAsDefaultProtocolClient(CUSTOM_PROTOCOL);
+        console.info('Removed existing protocol registration (if any) for', CUSTOM_PROTOCOL);
+      } catch (e) {
+        console.warn('Failed to remove existing protocol registration:', e);
+      }
+    }
+  } catch (err) {
+    console.warn('Protocol removal check failed:', err);
+  }
   try {
     if (process.defaultApp) {
-      app.setAsDefaultProtocolClient(CUSTOM_PROTOCOL, process.execPath, [process.argv[1]]);
+      // When running in development, avoid passing an invalid argv that points
+      // to system folders (e.g. C:\\WINDOWS\\system32) which breaks protocol registration.
+      let appArg = process.argv[1];
+      if (!appArg || String(appArg).toLowerCase().includes('system32') || !fs.existsSync(String(appArg))) {
+        // Fallback: register protocol without extra args (works for packaged apps and avoids invalid paths)
+        app.setAsDefaultProtocolClient(CUSTOM_PROTOCOL, process.execPath);
+      } else {
+        app.setAsDefaultProtocolClient(CUSTOM_PROTOCOL, process.execPath, [appArg]);
+      }
     } else {
       app.setAsDefaultProtocolClient(CUSTOM_PROTOCOL);
     }
@@ -113,12 +199,12 @@ function registerDeepLinkProtocol() {
 }
 
 function registerDeepLinkHandler() {
-  if (typeof app?.on !== 'function' || app.__streamixAuthProtocolRegistered) return;
-  app.__streamixAuthProtocolRegistered = true;
+  if (typeof app?.on !== 'function' || app.__pluberryAuthProtocolRegistered) return;
+  app.__pluberryAuthProtocolRegistered = true;
   app.on('open-url', (event, url) => {
     event.preventDefault();
     if (url && url.startsWith(`${CUSTOM_PROTOCOL}://`)) {
-      focusStreamixWindows();
+      focusPluberryWindows();
     }
   });
 }
@@ -151,17 +237,23 @@ function startOAuthCallbackServer() {
         const requestUrl = new URL(req.url || '/', 'http://localhost:9999');
         const normalizedPathname = requestUrl.pathname.replace(/\/$/, '');
         const lang = resolveLanguage(requestUrl, req.headers);
-        
-        if (normalizedPathname !== OAUTH_CALLBACK_PATH) {
+
+        const isCallbackRequest = isOAuthCallbackRequest(requestUrl, OAUTH_CALLBACK_PATH);
+        if (!isCallbackRequest) {
           res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('Not found');
           return;
         }
 
-        const token = requestUrl.searchParams.get('access_token');
-        const refreshToken = requestUrl.searchParams.get('refresh_token');
+        const { accessToken, refreshToken, error: oauthError } = extractOAuthTokens(requestUrl);
 
-        if (!token && !req.url.includes('?')) {
+        if (oauthError) {
+          res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(getAuthPageContent({ success: false, lang, details: { message: oauthError } }));
+          return;
+        }
+
+        if (!accessToken && !req.url.includes('?') && !req.url.includes('#')) {
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
           res.end(`
             <html>
@@ -181,11 +273,18 @@ function startOAuthCallbackServer() {
           return;
         }
 
-        if (token && refreshToken) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: token,
-            refresh_token: refreshToken
-          });
+        if (accessToken) {
+          const sessionPayload = refreshToken
+            ? { access_token: accessToken, refresh_token: refreshToken }
+            : { access_token: accessToken };
+
+          const { error: sessionError } = await supabase.auth.setSession(sessionPayload);
+
+          try {
+            focusPluberryWindows();
+          } catch (focusError) {
+            console.warn('Supabase: unable to focus app after auth callback:', focusError);
+          }
 
           res.writeHead(sessionError ? 500 : 200, { 'Content-Type': 'text/html; charset=utf-8' });
           res.end(getAuthPageContent({ success: !sessionError, lang, details: sessionError || null }));
@@ -199,7 +298,7 @@ function startOAuthCallbackServer() {
         }
 
         res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`<h1>Pas de jeton reçu</h1><p>URL brute reçue par Node : ${req.url}</p>`);
+        res.end(`<h1>No token received</h1><p>Raw URL received by Node: ${req.url}</p>`);
 
       } catch (err) {
         console.error('OAuth callback error:', err);
@@ -313,7 +412,7 @@ function onAuthStateChange(callback) {
   return supabase.auth.onAuthStateChange((event, session) => callback(event, session));
 }
 
-// 2. Finalisation de la fonction pour forcer la restauration manuelle si nécessaire au démarrage
+// Restore the session manually if needed during startup.
 async function restoreSession() {
   if (!supabase?.auth?.getSession) {
     return { data: { session: null }, error: new Error('Supabase is not configured in this build.') };
@@ -322,7 +421,7 @@ async function restoreSession() {
   return data?.session || null;
 }
 
-// Sources CRUD
+// Source CRUD helpers.
 async function saveSource(userId, source) {
   if (!userId) return { error: new Error('No userId provided') };
   const loggedIn = await isUserLoggedIn();

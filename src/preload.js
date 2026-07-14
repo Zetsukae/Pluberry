@@ -14,7 +14,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getPreferences: () => ipcRenderer.invoke("get-preferences"),
   getCurrentLanguage: () => ipcRenderer.invoke("get-current-language"),
   getAppTranslations: () => ipcRenderer.invoke("get-app-translations"),
+  getSetupTranslations: () => ipcRenderer.invoke("get-setup-translations"),
+  getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   resetApp: () => ipcRenderer.invoke("reset-application"),
+  setDebugPreference: (key, value) => ipcRenderer.invoke("set-debug-preference", key, value),
 
   openSettings: () => ipcRenderer.invoke("open-settings"),
   closeSettings: () => ipcRenderer.invoke("close-settings"),
@@ -31,6 +34,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   openExternal: (url) => ipcRenderer.invoke("open-external-link", url),
   showContextMenu: (menuItems) => ipcRenderer.invoke("show-context-menu", menuItems),
+  clearPlugins: () => ipcRenderer.invoke("clear-plugins"),
 
   syncData: (payload) => ipcRenderer.send("bridge-sync-data", payload),
 
@@ -52,4 +56,13 @@ ipcRenderer.on("streamix-storage-command", (event, command) => {
 
 ipcRenderer.on("supabase-auth-state-changed", (event, payload) => {
   window.dispatchEvent(new CustomEvent("supabase-auth-state-changed", { detail: payload }));
+});
+
+// Forward deep-link protocol URLs to the renderer as a CustomEvent
+ipcRenderer.on('deep-link', (event, url) => {
+  try {
+    window.dispatchEvent(new CustomEvent('deep-link', { detail: url }));
+  } catch (err) {
+    // Ignore errors in renderer event dispatch
+  }
 });

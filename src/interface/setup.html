@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en" id="htmlRoot">
+<head>
+  <meta charset="UTF-8">
+  <title>Setup</title>
+  <style>
+    :root {
+      --bg-canvas: #0d1117;       /* Main background */
+      --bg-surface: #161b22;      /* Panel background */
+      --border-color: #30363d;    /* Borders */
+      --text-main: #c9d1d9;       /* Soft white text */
+      --text-muted: #8b949e;      /* Gray text */
+      --btn-bg: #21262d;
+      --error-color: #f85149;
+      --link-color: #58a6ff;
+    }
+
+    ::-webkit-scrollbar { display: none; }
+    * { scrollbar-width: none; }
+
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex; justify-content: center; align-items: center;
+      user-select: none;
+      -webkit-app-region: drag; /* The window can be moved by dragging anywhere on it */
+    }
+
+    .setup-container {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 40px;
+      width: 420px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      -webkit-app-region: no-drag; /* Interactive zone */
+    }
+
+    .logo { width: 64px; height: 64px; margin-bottom: 24px; opacity: 0.9; }
+
+    h1 { font-size: 20px; font-weight: 600; margin: 0 0 12px 0; color: var(--text-main); }
+
+    p { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+
+    .input-group { position: relative; margin-bottom: 24px; text-align: left; }
+
+    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--text-main); }
+
+    .radio-option {
+      display: flex; align-items: center; padding: 12px; border: 1px solid var(--border-color);
+      border-radius: 6px; background-color: var(--bg-canvas); cursor: pointer; margin-bottom: 8px;
+      transition: 0.2s;
+    }
+    .radio-option:hover { border-color: var(--link-color); }
+    .radio-option input { margin-right: 12px; accent-color: #238636; }
+    .radio-option span { font-size: 14px; color: var(--text-main); }
+
+    .custom-url-section {
+      margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color);
+    }
+    .custom-url-section label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--text-main); }
+    .custom-url-input { 
+      width: 100%; padding: 8px 12px; background-color: var(--bg-canvas);
+      border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main);
+      font-size: 13px; box-sizing: border-box; margin-bottom: 8px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .custom-url-input:focus {
+      outline: none;
+      border-color: var(--link-color);
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+    }
+    .btn-add-url {
+      width: 100%; padding: 8px; background-color: #21262d; color: var(--text-main);
+      border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; cursor: pointer; margin-bottom: 12px;
+    }
+    .btn-add-url:hover { background-color: #30363d; }
+    .saved-urls { margin-top: 8px; }
+
+    .form-error {
+      display: none;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border: 1px solid #f85149;
+      border-radius: 10px;
+      background-color: rgba(248, 81, 73, 0.1);
+      color: #f85149;
+      font-size: 13px;
+      text-align: left;
+      line-height: 1.4;
+    }
+    .form-error.show {
+      display: block;
+    }
+
+    .btn-launch {
+      width: 100%; padding: 10px; background-color: #238636; color: white;
+      border: 1px solid rgba(240, 246, 252, 0.1); border-radius: 6px;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-launch:hover { background-color: #2ea043; }
+
+    .shake { animation: shake 0.5s; }
+    @keyframes shake {
+      0% { transform: translateX(0); } 25% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } 100% { transform: translateX(0); }
+    }
+
+    .footer-links { margin-top: 24px; font-size: 12px; color: var(--text-muted); }
+    .link { color: var(--link-color); text-decoration: none; cursor: pointer; margin-left: 4px; }
+    .link:hover { text-decoration: underline; }
+
+    select,
+    .custom-url-input,
+    .btn-add-url,
+    .btn-launch,
+    .radio-option input {
+      -webkit-app-region: no-drag;
+    }
+
+    select {
+      width: 100%; padding: 10px 12px; background-color: var(--bg-canvas);
+      border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-main);
+      font-size: 14px; cursor: pointer; box-sizing: border-box; margin-bottom: 8px;
+      appearance: none; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path fill="%238b949e" d="M6 9L1 4h10z"/></svg>');
+      background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    select:hover { border-color: var(--link-color); }
+    select:focus {
+      outline: none;
+      border-color: var(--link-color);
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+    }
+    select option {
+      background-color: var(--bg-surface);
+      color: var(--text-main);
+      padding: 8px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="setup-container">
+    <img src="../assets/icon.svg" alt="Logo Pluberry" class="logo">
+
+    <h1 id="setupTitle">Configuration initiale</h1>
+    <p id="setupDesc">Ajoutez votre URL (ou source) pour commencer.</p>
+
+    <div class="input-group">
+      <label id="customUrlLabel">Ajouter votre URL (ou source)</label>
+      <input type="text" id="customUrlInput" class="custom-url-input" placeholder="https://example.com/ or example.com">
+      <button id="addCustomUrlBtn" class="btn-add-url">+ Ajouter cette URL</button>
+      <div id="setupError" class="form-error" role="alert" aria-live="polite"></div>
+    </div>
+
+    <div class="custom-url-section">
+      <label id="popularLabel">Ou prennez les sources les plus utilisées!</label>
+      <select id="popularsSourceSelect">
+        <option value="">-- Choisissez une source --</option>
+        <option value="netflix">Netflix</option>
+        <option value="disneyplus">Disney+</option>
+        <option value="crunchyroll">Crunchyroll</option>
+      </select>
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px; display: none;" id="viewSourceContainer"><span id="viewLinkLabel">Voir:</span> <a id="viewSourceLink" href="#" class="link" style="margin-left: 0;"></a></div>
+      <div id="savedUrls" class="saved-urls"></div>
+    </div>
+
+    <button id="launchBtn" class="btn-launch">Lancer Pluberry</button>
+    <div id="setupVersion" style="margin-top: 16px; font-size: 12px; color: var(--text-muted);">Version ?</div>
+
+  <script>
+    // Translations object loaded at startup
+    let i18n = {};
+    let currentLanguage = 'en';
+
+    // Load translations on startup
+    async function initializeTranslations() {
+      try {
+        if (window.electronAPI && window.electronAPI.getSetupTranslations) {
+          const data = await window.electronAPI.getSetupTranslations();
+          currentLanguage = data.language || 'en';
+          i18n = data.translations || {};
+          
+          // Update HTML lang attribute
+          document.documentElement.lang = currentLanguage;
+          document.getElementById('htmlRoot').lang = currentLanguage;
+          
+          // Update page title
+          document.title = i18n.setup?.initialTitle || 'Setup';
+          
+          // Update all UI text
+          updateUIText();
+          updateSelectOptions();
+          const appVersion = await window.electronAPI.getAppVersion?.();
+          if (appVersion) {
+            const versionEl = document.getElementById('setupVersion');
+            if (versionEl) versionEl.textContent = `Version ${appVersion}`;
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load translations:", error);
+      }
+    }
+
+    function t(key, fallback = '') {
+      const value = i18n?.setup?.[key];
+      if (value === undefined || value === key) {
+        return fallback;
+      }
+      return value;
+    }
+
+    function updateUIText() {
+      document.getElementById('setupTitle').textContent = t('initialTitle', 'Initial Setup');
+      document.getElementById('setupDesc').textContent = t('initialDesc', 'Add your URL (or source) to get started.');
+      document.getElementById('customUrlLabel').textContent = t('customUrlLabel', 'Add your URL (or source)');
+      document.getElementById('customUrlInput').placeholder = t('customUrlPlaceholder', 'https://example.com/ or example.com');
+      document.getElementById('addCustomUrlBtn').textContent = t('addUrlBtn', '+ Add this URL');
+      document.getElementById('popularLabel').textContent = t('popularLabel', 'Or choose from the most popular sources!');
+      document.getElementById('viewLinkLabel').textContent = t('viewLink', 'View:');
+      document.getElementById('launchBtn').textContent = t('launchPluberry', 'Launch Pluberry');
+    }
+
+    function updateSelectOptions() {
+      const select = document.getElementById('popularsSourceSelect');
+      select.innerHTML = `<option value="">${t('selectPlaceholder')}</option>`;
+      
+      const options = [
+        { value: 'netflix', label: t('netflix') },
+        { value: 'disneyplus', label: t('disneyplus') },
+        { value: 'crunchyroll', label: t('crunchyroll') }
+      ];
+      
+      options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.label;
+        select.appendChild(option);
+      });
+    }
+
+    // Initialize on load
+    initializeTranslations();
+
+    const launchBtn = document.getElementById('launchBtn');
+    const customUrlInput = document.getElementById('customUrlInput');
+    const addCustomUrlBtn = document.getElementById('addCustomUrlBtn');
+    const savedUrlsDiv = document.getElementById('savedUrls');
+
+    let savedCustomUrls = [];
+    if (window.electronAPI && window.electronAPI.getCustomUrls) {
+      window.electronAPI.getCustomUrls().then(urls => {
+        savedCustomUrls = urls || [];
+        displaySavedUrls();
+      }).catch(() => {});
+    }
+
+    function displaySavedUrls() {
+      if (savedCustomUrls.length === 0) {
+        savedUrlsDiv.innerHTML = '';
+        return;
+      }
+      savedUrlsDiv.innerHTML = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">${t('savedUrls')}</div>` +
+        savedCustomUrls.map(url => `
+          <label class="radio-option" style="margin-bottom: 8px;">
+            <input type="radio" name="selectedSite" value="custom_${url}">
+            <span>${url}</span>
+          </label>
+        `).join('');
+    }
+
+    let errorTimeoutId = null;
+
+    function showError(message) {
+      const setupError = document.getElementById('setupError');
+      if (!setupError) return;
+      setupError.textContent = message;
+      setupError.classList.add('show');
+      
+      if (errorTimeoutId) {
+        clearTimeout(errorTimeoutId);
+      }
+      errorTimeoutId = setTimeout(() => {
+        hideError();
+      }, 3000);
+    }
+
+    function hideError() {
+      const setupError = document.getElementById('setupError');
+      if (!setupError) return;
+      setupError.textContent = '';
+      setupError.classList.remove('show');
+      
+      if (errorTimeoutId) {
+        clearTimeout(errorTimeoutId);
+        errorTimeoutId = null;
+      }
+    }
+
+    function normalizeSetupUrl(rawUrl) {
+      let url = rawUrl.trim();
+      if (!url) return '';
+      if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(url)) {
+        url = `https://${url}`;
+      }
+
+      try {
+        const parsed = new URL(url);
+        if (!parsed.pathname || parsed.pathname === '') {
+          parsed.pathname = '/';
+        }
+        return parsed.toString();
+      } catch (err) {
+        return url;
+      }
+    }
+
+    addCustomUrlBtn.addEventListener('click', () => {
+      const rawUrl = customUrlInput.value;
+      const url = normalizeSetupUrl(rawUrl);
+
+      hideError();
+      if (!url) {
+        showError(t('errorEmptyUrl'));
+        return;
+      }
+
+      try {
+        const parsed = new URL(url);
+        const hostname = (parsed.hostname || '').toLowerCase();
+        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+        if (!isLocalhost && hostname.indexOf('.') === -1) {
+          showError(t('errorInvalidUrl'));
+          customUrlInput.style.borderColor = '#f85149';
+          customUrlInput.focus();
+          setTimeout(() => { customUrlInput.style.borderColor = 'var(--border-color)'; }, 2000);
+          return;
+        }
+      } catch {
+        showError(t('errorInvalidUrl'));
+        customUrlInput.style.borderColor = '#f85149';
+        customUrlInput.focus();
+        setTimeout(() => { customUrlInput.style.borderColor = 'var(--border-color)'; }, 2000);
+        return;
+      }
+      
+      if (savedCustomUrls.includes(url)) {
+        showError(t('errorDuplicateUrl'));
+        return;
+      }
+      
+      savedCustomUrls.push(url);
+      if (window.electronAPI && window.electronAPI.saveCustomUrls) {
+        window.electronAPI.saveCustomUrls(savedCustomUrls);
+      }
+      displaySavedUrls();
+      customUrlInput.value = '';
+      
+      const newRadio = document.querySelector(`input[value="custom_${url}"]`);
+      if (newRadio) newRadio.checked = true;
+    });
+
+    const siteMap = {
+      "netflix": "https://www.netflix.com/",
+      "disneyplus": "https://www.disneyplus.com/",
+      "crunchyroll": "https://www.crunchyroll.com/",
+    };
+
+    const popularsSourceSelect = document.getElementById('popularsSourceSelect');
+    const viewSourceLink = document.getElementById('viewSourceLink');
+    
+    const viewSourceContainer = document.getElementById('viewSourceContainer');
+    
+    popularsSourceSelect.addEventListener('change', (e) => {
+      const selectedValue = e.target.value;
+      if (selectedValue) {
+        const url = siteMap[selectedValue];
+        viewSourceLink.href = url;
+        viewSourceLink.textContent = url;
+        viewSourceLink.setAttribute('target', '_blank');
+        viewSourceContainer.style.display = 'block';
+      } else {
+        viewSourceContainer.style.display = 'none';
+      }
+    });
+
+    launchBtn.addEventListener('click', async () => {
+      let selectedValue = null;
+      let sourceUrl = null;
+
+      // Check if a popular source is selected
+      const popularsSelected = popularsSourceSelect.value;
+      if (popularsSelected) {
+        selectedValue = popularsSelected;
+        sourceUrl = siteMap[popularsSelected];
+
+        if (sourceUrl && !savedCustomUrls.includes(sourceUrl)) {
+          savedCustomUrls.push(sourceUrl);
+          if (window.electronAPI && window.electronAPI.saveCustomUrls) {
+            window.electronAPI.saveCustomUrls(savedCustomUrls);
+          }
+          displaySavedUrls();
+        }
+      } else {
+        // Check if a saved custom URL is selected
+        const selectedRadio = document.querySelector('input[name="selectedSite"]:checked');
+        if (selectedRadio) {
+          selectedValue = selectedRadio.value;
+          if (selectedValue.startsWith('custom_')) {
+            sourceUrl = selectedValue.substring(7);
+          }
+        } else {
+          // If no radio selected, allow launching directly from the custom input field
+          const rawInput = customUrlInput.value || '';
+          if (rawInput.trim()) {
+            const normalized = normalizeSetupUrl(rawInput);
+            try {
+              const parsed = new URL(normalized);
+              const hostname = (parsed.hostname || '').toLowerCase();
+              const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+              if (!isLocalhost && hostname.indexOf('.') === -1) {
+                showError(t('errorInvalidUrl'));
+                return;
+              }
+              sourceUrl = normalized;
+              // persist to savedCustomUrls
+              if (sourceUrl && !savedCustomUrls.includes(sourceUrl)) {
+                savedCustomUrls.push(sourceUrl);
+                if (window.electronAPI && window.electronAPI.saveCustomUrls) {
+                  window.electronAPI.saveCustomUrls(savedCustomUrls);
+                }
+                displaySavedUrls();
+              }
+            } catch (e) {
+              showError(t('errorInvalidUrl'));
+              return;
+            }
+          }
+        }
+      }
+
+      if (sourceUrl) {
+        const result = await window.electronAPI.saveConfig({ selectedSite: selectedValue, sourceUrl, language: currentLanguage });
+        if (!result || result.success === false) {
+          showError(t('errorInvalidUrl', 'The URL must start with http:// or https://'));
+          return;
+        }
+        // success - app will navigate or relaunch as necessary
+      } else {
+        showError(t('errorNoSelection'));
+      }
+    });
+
+    document.getElementById('findSourceLink')?.addEventListener('click', () => {
+      window.electronAPI.openExternal('https://streamix.buzz/sources/');
+    });
+  </script>
+</body>
+</html>

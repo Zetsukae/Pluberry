@@ -16,11 +16,11 @@ animation: menuEnter 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     }
 }
 
-.streamix-btn {
+.pluberry-btn {
     animation: btnPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
 }
 
-#streamix-home-btn { animation-delay: 0.1s; }
+#pluberry-home-btn { animation-delay: 0.1s; }
 
 #window-controls button:nth-child(1) { animation-delay: 0.2s; }
 #window-controls button:nth-child(2) { animation-delay: 0.3s; }
@@ -36,7 +36,7 @@ animation: menuEnter 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     }
 }
 
-.streamix-btn:active {
+.pluberry-btn:active {
     transform: scale(0.92) !important;
     transition: transform 0.1s;
 }

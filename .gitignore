@@ -1,5 +1,23 @@
+# Dependencies and build output
 node_modules/
 dist/
+build/
+out/
+
+# Local environment and secrets
 .env
-assets/generated/
-streamix-supabase-auth.json
+.env.*
+!.env.example
+!.env.sample
+src/backend/.env
+src/backend/.env.*
+pluberry-supabase-auth.json
+src/backend/streamix-supabase-auth.json
+src/backend/pluberry-supabase-auth.json
+pluberry-supabase-auth.json
+
+# Generated assets
+src/assets/generated/
+
+# Logs
+*.log

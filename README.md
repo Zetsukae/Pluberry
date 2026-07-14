@@ -13,7 +13,7 @@
 
 ## Download
 
-Pluberry is available for **Windows** and **Linux**.
+Pluberry is available for **Windows**, **Linux**, and **macOS**.
 
 | System | Type | Link |
 | :--- | :--- | :--- |
@@ -72,6 +72,9 @@ npm run build:win
 
 # For Linux
 npm run build:linux
+
+# For macOS
+npm run build:mac
 ```
 
 ---
@@ -80,20 +83,23 @@ npm run build:linux
 
 ```
 Pluberry/
-├── main.js                   # Main process (security, windows, IPC)
-├── preload.js                # Secure renderer bridge (ContextBridge)
+├── main.js                   # Main Electron process entry point
+├── preload.js                # Secure renderer bridge
 ├── contextMenu.js            # Right-click context menu handler
-├── locales.js                # Translations FR / EN / ES / DE / JA
-├── env-loader.js             # Environment variables loader
-├── supabase.js               # Supabase integration and auth handling
-├── streamix-supabase-auth.json # Supabase config and keys
-├── supabase_schema.sql       # Supabase database schema
-├── settings.html             # Settings interface
-├── setup.html                # First-launch setup interface
+├── locales.js                # FR / EN / ES / DE / JA translations
+├── env-loader.js             # Environment configuration loader
+├── supabase.js               # Supabase auth and source sync integration
+├── src/
+│   └── main/
+│       ├── app-config.js    # Shared resource-path helpers
+│       └── oauth-helpers.js # OAuth callback helpers for loopback auth
+├── test/                     # Automated regression tests
+├── settings.html             # Settings UI
+├── setup.html                # First-run setup UI
 ├── animations.css            # UI animations
 ├── assets/                   # Icons, images, and static assets
 ├── launcher/                 # App launcher / configuration files
-└── dist/                     # Build outputs (AppImage / installers)
+└── dist/                     # Build outputs (installer / bundle)
 ```
 
 ### What's New

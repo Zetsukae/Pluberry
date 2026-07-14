@@ -104,6 +104,40 @@
     .heart { display: inline-block; animation: beat 1.5s infinite; }
     @keyframes beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
 
+    .notification-container {
+      position: fixed; bottom: 20px; right: 20px; z-index: 10010;
+      display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+    }
+    .notification {
+      min-width: 280px; max-width: 360px; padding: 14px 16px; border-radius: 12px;
+      box-shadow: 0 18px 38px rgba(0,0,0,0.45); color: white; font-size: 13px;
+      opacity: 0; transform: translateY(10px); transition: opacity 0.2s ease, transform 0.2s ease;
+      pointer-events: auto;
+    }
+    .notification { display: flex; align-items: center; gap: 12px; }
+    .notification.show { opacity: 1; transform: translateY(0); }
+    .notification.info { background: rgba(30, 30, 30, 0.95); border: 1px solid #333; }
+    .notification.success { background: rgba(34, 139, 91, 0.95); }
+    .notification.error { background: rgba(194, 51, 51, 0.95); }
+
+    .notification .notification-action {
+      margin-left: auto;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: inherit;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .notification .notification-action:hover { background: rgba(255,255,255,0.12); }
+
+    .confirm-modal .modal-content { max-width: 420px; }
+    .confirm-modal .modal-title { margin-bottom: 10px; }
+    .confirm-modal .modal-body { color: var(--text-main); margin-bottom: 20px; line-height: 1.5; }
+    .confirm-modal .modal-buttons { justify-content: flex-end; gap: 10px; }
+
     /* Modal styles */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
     .modal.active { display: flex; }
@@ -121,6 +155,17 @@
   </style>
 </head>
 <body>
+  <div id="notificationContainer" class="notification-container"></div>
+  <div id="appConfirmModal" class="modal confirm-modal" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-title" data-i18n="confirmTitle">Confirmer</div>
+      <div id="confirmMessage" class="modal-body">Confirmez cette action.</div>
+      <div class="modal-buttons">
+        <button id="confirmNoBtn" class="modal-btn-cancel" data-i18n="btnCancel">Annuler</button>
+        <button id="confirmYesBtn" class="modal-btn-confirm" data-i18n="btnConfirm">Confirmer</button>
+      </div>
+    </div>
+  </div>
   <div class="title-bar"><span data-i18n="title">Paramètres</span><button class="close-win-btn" id="btnClose">x</button></div>
 
   <div id="authModal" class="modal">
@@ -131,7 +176,7 @@
       </div>
       <div class="modal-buttons" style="flex-direction: column; gap: 12px;">
       <button id="btnDiscordLogin" class="modal-btn-confirm" style="background-color: #5865F2; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border: none; border-radius: 6px;">
-        <img src="./assets/login-register/discord-white-icon.svg" style="height: 20px; width: auto;">
+        <img src="../assets/login-register/discord-white-icon.svg" style="height: 20px; width: auto;">
         <span style="color: white; font-size: 16px; font-weight: 600; font-family: sans-serif;" data-i18n="connectWithDiscord">Se connecter avec Discord</span>
       </button>
         <button id="modalCancel" class="modal-btn-cancel" style="width: 100%;" data-i18n="btnCancel">Annuler</button>
@@ -199,22 +244,7 @@
         </div>
 
         <div class="settings-box">
-          <label data-i18n="sourceTitle">Site de streaming</label>
-          <span class="sub-label" data-i18n="sourceDesc">Choisissez votre source préférée</span>
-          <div class="radio-group">
-            <label class="radio-option">
-              <input type="radio" name="selectedSite" value="franime">
-              <span data-i18n="sourceFranime">Franime (https://franime.fr/)</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="selectedSite" value="anime-sama">
-              <span data-i18n="sourceAnimeSama">Anime Sama (https://anime-sama.pw/)</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="settings-box">
-          <label data-i18n="customUrlsTitle">URLs Personnalisées</label>
+          <label data-i18n="customUrlsTitle">Sources de streaming</label>
           <span class="sub-label" data-i18n="customUrlsDesc">Ajoutez vos propres sites de streaming</span>
           <div style="margin-bottom: 12px;">
             <input type="text" id="customUrlInput" data-i18n-placeholder="customUrlPlaceholder" placeholder="https://votre-site.com/" style="width: 100%; padding: 8px 12px; background-color: var(--bg-canvas); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); font-size: 13px; box-sizing: border-box; margin-bottom: 8px;">
@@ -266,9 +296,9 @@
       <div id="about" class="section">
         <h2 data-i18n="aboutTitle">À propos</h2>
         <div style="text-align: center; padding: 40px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface);">
-          <img src="./assets/icon.svg" alt="Logo" style="width: 64px; margin-bottom: 16px; opacity: 0.8;">
+          <img src="../assets/icon.svg" alt="Logo" style="width: 64px; margin-bottom: 16px; opacity: 0.8;">
           <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px;">Pluberry</div>
-          <div style="color: var(--text-muted); margin-bottom: 16px;">Version 1.2.26 - Beyond Advance</div>
+            <div id="aboutVersion" style="color: var(--text-muted); margin-bottom: 16px;">Version 1.2.26 - Beyond Advance</div>
           <p style="color: var(--text-main); font-size: 14px; margin-bottom: 8px; line-height: 1.6; max-width: 400px; margin-left: auto; margin-right: auto;" data-i18n="desc">
             Description app.
           </p>
@@ -298,13 +328,77 @@
       const animCheckbox = document.getElementById('animationsEnabled');
       const langSelect = document.getElementById('language');
       let currentUiLang = 'fr';
+      let savedUrlsGlobal = [];
+      let originalSavedUrls = [];
 
       function getTranslationValue(key, fallback = '') {
         const bundle = translations[currentUiLang] || translations.fr || {};
         const settingsValues = bundle.settings || {};
+        const setupValues = bundle.setup || {};
         const commonValues = bundle.common || {};
         const authValues = bundle.auth || {};
-        return settingsValues[key] ?? commonValues[key] ?? authValues[key] ?? fallback;
+        const debugValues = bundle.debugMenu || {};
+        return settingsValues[key] ?? setupValues[key] ?? commonValues[key] ?? authValues[key] ?? debugValues[key] ?? fallback;
+      }
+
+      function showNotification(message, type = 'info', duration = 3500) {
+        const container = document.getElementById('notificationContainer');
+        if (!container || !message) return;
+        const toast = document.createElement('div');
+        toast.className = `notification ${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('show'));
+
+        const timer = setTimeout(() => {
+          toast.classList.remove('show');
+          setTimeout(() => toast.remove(), 200);
+        }, duration);
+
+        toast.addEventListener('click', () => {
+          clearTimeout(timer);
+          toast.classList.remove('show');
+          setTimeout(() => toast.remove(), 200);
+        });
+      }
+
+      function showConfirmDialog(message) {
+        return new Promise(resolve => {
+          const modal = document.getElementById('appConfirmModal');
+          const messageEl = document.getElementById('confirmMessage');
+          const yesBtn = document.getElementById('confirmYesBtn');
+          const noBtn = document.getElementById('confirmNoBtn');
+          if (!modal || !messageEl || !yesBtn || !noBtn) {
+            resolve(false);
+            return;
+          }
+
+          messageEl.textContent = message;
+          modal.classList.add('active');
+
+          const cleanup = (result) => {
+            modal.classList.remove('active');
+            yesBtn.removeEventListener('click', onConfirm);
+            noBtn.removeEventListener('click', onCancel);
+            modal.removeEventListener('click', onOutsideClick);
+            document.removeEventListener('keydown', onEscape);
+            resolve(result);
+          };
+
+          const onConfirm = () => cleanup(true);
+          const onCancel = () => cleanup(false);
+          const onOutsideClick = (event) => {
+            if (event.target === modal) cleanup(false);
+          };
+          const onEscape = (event) => {
+            if (event.key === 'Escape') cleanup(false);
+          };
+
+          yesBtn.addEventListener('click', onConfirm);
+          noBtn.addEventListener('click', onCancel);
+          modal.addEventListener('click', onOutsideClick);
+          document.addEventListener('keydown', onEscape);
+        });
       }
 
       function updateTexts(lang) {
@@ -332,30 +426,29 @@
           translations = (await window.electronAPI.getAppTranslations()) || {};
           const config = await window.electronAPI.getPreferences();
           
-          // D'abord charger les URLs custom pour pouvoir les vérifier
+          // Load custom URLs first so they can be validated.
           const customUrls = await window.electronAPI.getCustomUrls();
           const savedCustomUrls = customUrls || [];
           
-          // Determine which site is selected based on sourceUrl
+          // Map built-in source URLs to the radio value names.
           const siteMap = {
-            'https://franime.fr/': 'franime',
-            'https://anime-sama.pw/': 'anime-sama',
+            "https://www.netflix.com/": "netflix",
+            "https://www.disneyplus.com/": "disneyplus",
+            "https://www.crunchyroll.com/fr/": "crunchyroll"
           };
           
           let selectedSite = siteMap[config.sourceUrl];
           
-          // Si ce n'est pas une URL fixe, vérifier si c'est une URL custom
+          // If it is not a built-in URL, check whether it is a custom URL.
           if (!selectedSite) {
             const customMatch = savedCustomUrls.find(url => url === config.sourceUrl);
             if (customMatch) {
               selectedSite = 'custom_' + customMatch;
-            } else {
-              selectedSite = 'franime'; // Valeur par défaut
             }
           }
           
           const radio = document.querySelector(`input[name="selectedSite"][value="${selectedSite}"]`);
-          if(radio) radio.checked = true;
+          if (radio) radio.checked = true;
           
           const style = config.windowStyle || 'default';
           const styleRadio = document.querySelector(`input[name="wStyle"][value="${style}"]`);
@@ -365,14 +458,20 @@
           langSelect.value = currentLang;
           updateTexts(currentLang);
           
-          // Charger les plugins et URLs custom avec gestion d'erreur
+          const appVersion = await window.electronAPI.getAppVersion?.();
+          if (appVersion) {
+            const versionEl = document.getElementById('aboutVersion');
+            if (versionEl) versionEl.textContent = `Version ${appVersion} - Beyond Advance`;
+          }
+          
+          // Load plugins and custom URLs with error handling.
           loadPluginsList().catch(e => console.error('Erreur chargement plugins:', e));
           loadPluginStore().catch(e => console.error('Erreur chargement store:', e));
           loadCustomUrls().catch(e => console.error('Erreur chargement URLs custom:', e));
           
         } catch(e) { 
           console.error('Erreur initialisation paramètres:', e);
-          // Valeurs par défaut en cas d'erreur
+          // Default values in case of error.
           langSelect.value = 'en';
           updateTexts('en');
           loadPluginsList().catch(e => console.error('Erreur chargement plugins:', e));
@@ -381,14 +480,14 @@
         }
       } else {
         console.warn('electronAPI non disponible');
-        // Mode dégradé sans API
+        // Graceful fallback mode without the API.
         langSelect.value = 'en';
         updateTexts('en');
       }
 
       async function loadCustomUrls() {
         try {
-          // Vérifier que les éléments existent
+          // Ensure the relevant elements exist.
           const customUrlsList = document.getElementById("customUrlsList");
           const customUrlInput = document.getElementById("customUrlInput");
           const addCustomUrlBtn = document.getElementById("addCustomUrlBtn");
@@ -399,29 +498,40 @@
           }
           
           const customUrls = await window.electronAPI.getCustomUrls();
-          let savedUrls = customUrls || [];
+          savedUrlsGlobal = customUrls || [];
+          originalSavedUrls = Array.isArray(savedUrlsGlobal) ? [...savedUrlsGlobal] : [];
+          let savedUrls = savedUrlsGlobal;
           const config = await window.electronAPI.getPreferences();
           const currentUrl = config.sourceUrl;
 
           function displayCustomUrls() {
             customUrlsList.innerHTML = "";
-            savedUrls.forEach(url => {
+
+            if ((savedUrlsGlobal || []).length > 0) {
+              const customTitle = document.createElement('div');
+              customTitle.style.cssText = 'color: var(--text-muted); font-size: 12px; margin-bottom: 8px;';
+              customTitle.textContent = getTranslationValue('customUrlsSavedTitle', 'Sources personnalisées');
+              customUrlsList.appendChild(customTitle);
+            }
+
+            (savedUrlsGlobal || []).forEach(url => {
               const label = document.createElement("label");
               label.className = "radio-option";
               label.style.display = "flex";
               label.style.justifyContent = "space-between";
               label.style.alignItems = "center";
-              
+              label.style.marginBottom = "8px";
+
               const radio = document.createElement("input");
               radio.type = "radio";
               radio.name = "selectedSite";
               radio.value = "custom_" + url;
               if (currentUrl === url) radio.checked = true;
-              
+
               const contentSpan = document.createElement("span");
               contentSpan.style.flex = "1";
               contentSpan.textContent = url;
-              
+
               const btn = document.createElement("button");
               btn.style.cssText = "background: none; border: none; color: #f85149; cursor: pointer; font-size: 14px; padding: 0 4px; margin-left: 8px;";
               btn.textContent = "✕";
@@ -431,7 +541,7 @@
                 e.preventDefault();
                 removeSavedUrl(url);
               };
-              
+
               label.appendChild(radio);
               label.appendChild(contentSpan);
               label.appendChild(btn);
@@ -440,8 +550,9 @@
           }
 
           window.removeSavedUrl = (url) => {
-            savedUrls = savedUrls.filter(u => u !== url);
-            window.electronAPI.saveCustomUrls(savedUrls);
+            // Keep track of the last deleted URL so it can be restored if needed.
+            window.lastDeletedCustomUrl = url;
+            savedUrlsGlobal = savedUrlsGlobal.filter(u => u !== url);
             displayCustomUrls();
           };
 
@@ -449,30 +560,38 @@
             addCustomUrlBtn.onclick = () => {
               const url = customUrlInput.value.trim();
               
-              // Validation
-              if (!url) {
-                alert("Veuillez entrer une URL");
+              // Validate the URL.
+                  if (!url) {
+                showNotification(getTranslationValue('errorEmptyUrl', 'Veuillez entrer une URL'), 'error');
                 return;
               }
               
-              if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                alert("L'URL doit commencer par http:// ou https://");
+              try {
+                const parsed = new URL(url);
+                const hostname = (parsed.hostname || '').toLowerCase();
+                const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+                if (!isLocalhost && hostname.indexOf('.') === -1) {
+                  showNotification(getTranslationValue('errorInvalidUrl', "L'URL doit commencer par http:// ou https://"), 'error');
+                  customUrlInput.focus();
+                  return;
+                }
+              } catch {
+                showNotification(getTranslationValue('errorInvalidUrl', "L'URL doit commencer par http:// ou https://"), 'error');
                 customUrlInput.focus();
                 return;
               }
               
-              if (savedUrls.includes(url)) {
-                alert("Cette URL est déjà ajoutée");
+              if (savedUrlsGlobal.includes(url)) {
+                showNotification(getTranslationValue('errorDuplicateUrl', 'Cette URL est déjà ajoutée'), 'error');
                 return;
               }
-              
-              // Ajouter l'URL
-              savedUrls.push(url);
-              window.electronAPI.saveCustomUrls(savedUrls);
+
+              // Add the URL locally; persist only on Save.
+              savedUrlsGlobal.push(url);
               customUrlInput.value = "";
               displayCustomUrls();
               
-              // Auto-sélectionner la nouvelle URL
+              // Auto-select the new URL.
               const newRadio = document.querySelector('input[value="custom_' + url +'"]');
               if (newRadio) newRadio.checked = true;
             };
@@ -499,23 +618,99 @@
       document.getElementById('btnCancel').addEventListener('click', close);
 
       document.getElementById('btnSave').addEventListener('click', async () => {
-        const selectedSite = document.querySelector('input[name="selectedSite"]:checked').value;
+        const selectedRadio = document.querySelector('input[name="selectedSite"]:checked');
+        const selectedSite = selectedRadio ? selectedRadio.value : '';
         const style = document.querySelector('input[name="wStyle"]:checked').value;
         const animationsEnabled = animCheckbox.checked;
         const language = langSelect.value;
         
         let configToSave = { selectedSite, windowStyle: style, animationsEnabled, language };
         
-        // Si c'est une URL custom, extraire l'URL réelle
-        if (selectedSite.startsWith('custom_')) {
+        // If it is a custom URL, extract the real URL.
+        if (selectedSite && selectedSite.startsWith('custom_')) {
           const customUrl = selectedSite.substring(7); // Enlever "custom_"
           configToSave.sourceUrl = customUrl;
         }
         
-        await window.electronAPI.saveConfig(configToSave);
+        // Ensure at least one custom URL remains saved before allowing save.
+        try {
+          const currentCustoms = savedUrlsGlobal || [];
+          if ((!currentCustoms || currentCustoms.length === 0) && (!window.lastDeletedCustomUrl)) {
+            // No custom URLs and nothing to restore.
+            showNotification(getTranslationValue('mustKeepOneSource', "Hey, tu dois garder au minimum 1 oeuf!"), 'error', 6000);
+            return;
+          }
+
+          if ((!currentCustoms || currentCustoms.length === 0) && window.lastDeletedCustomUrl) {
+            // Show a toast with action to restore the last deleted URL.
+            const container = document.getElementById('notificationContainer');
+            if (container) {
+              const toast = document.createElement('div');
+              toast.className = 'notification info';
+
+              const msg = document.createElement('span');
+              msg.textContent = getTranslationValue('mustKeepOneSource', "Hey, tu dois garder au minimum 1 oeuf!");
+
+              const actionBtn = document.createElement('button');
+              actionBtn.className = 'notification-action';
+              actionBtn.textContent = getTranslationValue('restoreLastUrlBtn', 'Oww OK :}');
+
+              // Action handler: restore last deleted URL then refresh list.
+              const onAction = async () => {
+                const last = window.lastDeletedCustomUrl;
+                if (last) {
+                  const updated = (await window.electronAPI.getCustomUrls()) || [];
+                  if (!updated.includes(last)) {
+                    updated.push(last);
+                    await window.electronAPI.saveCustomUrls(updated);
+                  }
+                  try { await loadCustomUrls(); } catch(_) {}
+                }
+                // remove toast
+                clearTimeout(timer);
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 200);
+              };
+
+              actionBtn.addEventListener('click', onAction);
+
+              toast.appendChild(msg);
+              toast.appendChild(actionBtn);
+              container.appendChild(toast);
+              requestAnimationFrame(() => toast.classList.add('show'));
+
+              const timer = setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 200);
+              }, 6000);
+
+              return;
+            }
+          }
+
+        } catch (e) {
+          console.error('Error checking custom URLs before save:', e);
+        }
+
+        // Persist custom URLs first, then save config.
+        try {
+          await window.electronAPI.saveCustomUrls(savedUrlsGlobal || []);
+        } catch (e) {
+          console.error('Failed to save custom URLs:', e);
+        }
+
+        const result = await window.electronAPI.saveConfig(configToSave);
+        if (!result || result.success === false) {
+          showNotification(getTranslationValue('errorInvalidUrl', 'The URL must start with http:// or https://'), 'error');
+          return;
+        }
+        showNotification(getTranslationValue('saved', 'Saved'), 'success');
       });
 
-      document.getElementById('btnReset').addEventListener('click', async () => { if(confirm('Tout effacer ?')) await window.electronAPI.resetApp(); });
+      document.getElementById('btnReset').addEventListener('click', async () => {
+        const confirmed = await showConfirmDialog(getTranslationValue('confirmReset', 'Effacer toutes les données de l\'application ?'));
+        if (confirmed) await window.electronAPI.resetApp();
+      });
       document.getElementById('btnAddPlugin').addEventListener('click', async () => { await window.electronAPI.selectPluginFile(); loadPluginsList(); });
 
       async function loadPluginStore() {
@@ -576,7 +771,7 @@
 
       const open = (url) => window.electronAPI.openExternal(url);
 
-      // Fonction pour créer le menu contextuel
+      // Function to create the context menu.
       const createContextMenu = (url, element) => {
         element.addEventListener('contextmenu', (e) => {
           e.preventDefault();
@@ -588,13 +783,13 @@
               }
             ]);
           } else {
-            // Fallback si l'API n'est pas disponible
+            // Fallback if the API is unavailable.
             open(url);
           }
         });
       };
 
-      // Supprimer les event listeners d'ouverture automatique et ajouter les menus contextuels
+      // Remove automatic-open event listeners and add context menus.
       const btnRepo = document.getElementById('btnRepo');
       const btnWiki = document.getElementById('btnWiki');
       const btnIssues = document.getElementById('btnIssues');
@@ -611,7 +806,7 @@
 
       async function loadPluginsList() {
         try {
-          // Vérifier que l'élément existe
+          // Ensure the element exists.
           const list = document.getElementById('plugin-list');
           if (!list) {
             console.error("Élément plugin-list manquant");
@@ -634,11 +829,11 @@
             div.className = 'plugin-item';
             div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;';
 
-            // --- ACTIONS AT LEFT (DELETE BTN) ---
+            // --- LEFT ACTIONS (DELETE BUTTON) ---
             const leftActions = document.createElement('div');
             leftActions.style.cssText = 'display: flex; align-items: center; gap: 12px;';
             
-            // X Button (Delete)
+            // X button (delete).
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'btn-icon';
             deleteBtn.innerHTML = '✕';
@@ -648,7 +843,8 @@
             deleteBtn.addEventListener('mouseout', () => deleteBtn.style.color = '#8b949e');
             deleteBtn.addEventListener('click', async (e) => {
               e.stopPropagation();
-              if(confirm(`Supprimer ${p.name} ?`)) {
+              const confirmed = await showConfirmDialog(`Supprimer ${p.name} ?`);
+              if (confirmed) {
                 await window.electronAPI.removePlugin(p.path);
                 loadPluginsList();
               }
@@ -658,7 +854,7 @@
             const infoContainer = document.createElement('div');
             infoContainer.style.flex = '1';
 
-            // --- GESTION AUTEUR / GITHUB / VERSION ---
+            // --- AUTHOR / GITHUB / VERSION HANDLING ---
             let authorHtml = '';
             if (p.author) {
                 if (p.github) {
@@ -668,7 +864,7 @@
                 }
             }
 
-            // Badge Version
+            // Version badge.
             const versionHtml = p.version ? `<span style="background: #21262d; border: 1px solid #30363d; border-radius: 10px; padding: 2px 8px; font-size: 10px; color: var(--text-muted); margin-left: 8px;">v${p.version}</span>` : '';
 
             infoContainer.innerHTML = `<div class="plugin-info"><div>${p.name} ${versionHtml} ${authorHtml}</div><div>${p.path}</div></div>`;
@@ -696,7 +892,7 @@
 
             list.appendChild(div);
 
-            // Ajouter le menu contextuel pour les liens GitHub des auteurs
+            // Add a context menu for author GitHub links.
             const authorLink = div.querySelector('.plugin-author-link');
             if (authorLink && authorLink.dataset.github) {
               createContextMenu(authorLink.dataset.github, authorLink);
@@ -831,7 +1027,7 @@
           const prefs = await window.electronAPI.getPreferences();
           const customUrls = prefs.customUrls || [];
           
-          // Save each source
+          // Save each source.
           for (const url of customUrls) {
             const cookies = await window.electronAPI.collectCookiesForUrl(url);
             await window.electronAPI.saveSource(userId, {
@@ -848,34 +1044,34 @@
         }
       }
 
-      // Show modal for OAuth
+      // Show the OAuth modal.
       document.getElementById('btnSupabaseLogin')?.addEventListener('click', () => {
         authModal.classList.add('active');
       });
 
-      // Discord OAuth
+      // Discord OAuth flow.
       document.getElementById('btnDiscordLogin')?.addEventListener('click', async () => {
         try {
           authModal.classList.remove('active');
           const result = await window.electronAPI.authSignInWithDiscord();
           if (result?.error) {
-            alert(`Erreur: ${result.error.message}`);
+            showNotification(`${getTranslationValue('error', 'Erreur')}: ${result.error.message}`, 'error');
             return;
           }
           await updateSupabaseAuthUI();
         } catch (e) {
           console.error('Discord OAuth error:', e);
-          alert(`Erreur: ${e.message}`);
+          showNotification(`${getTranslationValue('error', 'Erreur')}: ${e.message}`, 'error');
         }
       });
 
-      // Handle modal cancel
+      // Handle modal cancellation.
       modalCancel.addEventListener('click', () => {
         console.log('❌ Cancel button clicked');
         authModal.classList.remove('active');
       });
 
-      // Close modal on Escape key
+      // Close the modal on Escape.
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           if (authModal.classList.contains('active')) {
@@ -887,14 +1083,14 @@
         }
       });
 
-      // Close modal on outside click
+      // Close the modal on outside click.
       authModal.addEventListener('click', (e) => {
         if (e.target === authModal) {
           authModal.classList.remove('active');
         }
       });
 
-      // Email verify modal handlers
+      // Email verification modal handlers.
       btnVerifyOk.addEventListener('click', () => {
         emailVerifyModal.classList.remove('active');
       });
@@ -905,22 +1101,22 @@
         }
       });
 
-      // Sign Out
+      // Sign out.
       document.getElementById('btnSupabaseLogout')?.addEventListener('click', async () => {
         try {
           await window.electronAPI.authSignOut();
           await updateSupabaseAuthUI();
         } catch (e) {
-          alert(`Erreur: ${e.message}`);
+          showNotification(`${getTranslationValue('error', 'Erreur')}: ${e.message}`, 'error');
         }
       });
 
-      // Manual Save
+      // Manual save.
       document.getElementById('btnSaveNow')?.addEventListener('click', async () => {
         try {
           const user = await window.electronAPI.authGetUser();
           if (!user?.data?.user) {
-            alert(getTranslationValue('connectRequired', 'Vous devez être connecté'));
+            showNotification(getTranslationValue('connectRequired', 'Vous devez être connecté'), 'error');
             return;
           }
 
@@ -938,19 +1134,19 @@
           }, 2000);
         } catch (e) {
           console.error('Save error:', e);
-          alert(`${getTranslationValue('error', 'Erreur')}: ${e.message}`);
+          showNotification(`${getTranslationValue('error', 'Erreur')}: ${e.message}`, 'error');
           const button = document.getElementById('btnSaveNow');
           button.disabled = false;
           button.textContent = getTranslationValue('testSave', 'Tester la sauvegarde');
         }
       });
 
-      // Manual Load
+      // Manual load.
       document.getElementById('btnLoadNow')?.addEventListener('click', async () => {
         try {
           const user = await window.electronAPI.authGetUser();
           if (!user?.data?.user) {
-            alert(getTranslationValue('connectRequired', 'Vous devez être connecté'));
+            showNotification(getTranslationValue('connectRequired', 'Vous devez être connecté'), 'error');
             return;
           }
           
@@ -967,13 +1163,13 @@
           }, 2000);
         } catch (e) {
           console.error('Load error:', e);
-          alert(`${getTranslationValue('error', 'Erreur')}: ${e.message}`);
+          showNotification(`${getTranslationValue('error', 'Erreur')}: ${e.message}`, 'error');
           document.getElementById('btnLoadNow').disabled = false;
           document.getElementById('btnLoadNow').textContent = getTranslationValue('load', 'Charger');
         }
       });
 
-      // Listen for data sync from the main app
+      // Listen for data sync from the main app.
       window.addEventListener('message', async (ev) => {
         if (ev.data?.type === 'streamix-storage-command' && ev.data?.allData) {
           try {

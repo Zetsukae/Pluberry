@@ -5,7 +5,8 @@ const https = require("node:https")
 const http = require("node:http")
 const { locales } = require("./locales")
 const Store = require("electron-store")
-const { loadDotEnv } = require("./env-loader")
+const { loadDotEnv } = require("./backend/env-loader")
+const { getResourcePath, getAppAssetPath } = require("./main/app-config")
 const DiscordRPC = require("discord-rpc")
 
 loadDotEnv([
@@ -13,25 +14,8 @@ loadDotEnv([
   path.join(app?.getPath?.('userData') || __dirname, '.env')
 ]);
 
-// Import du menu clic droit
+// Import the right-click menu.
 const setupContextMenu = require("./contextMenu")
-
-// Helper pour résoudre les chemins des ressources (important pour Windows packaging)
-function getResourcePath(filename) {
-  const candidates = [
-    path.join(__dirname, filename),
-    path.join(app.getAppPath(), filename),
-    path.join(process.resourcesPath || '', filename)
-  ];
-  
-  for (const p of candidates) {
-    if (p && fs.existsSync(p)) {
-      return p;
-    }
-  }
-  
-  return path.join(__dirname, filename);
-}
 
 const PLUGIN_STORE_URL = "https://raw.githubusercontent.com/Zetsukae/Pluberry/website/sources/index.html";
 
@@ -302,6 +286,26 @@ async function collectCookiesForSource(sourceUrl) {
   }
 }
 
+// Queue to store a deep-link received before the main window is ready
+let queuedDeepLink = null;
+
+function handleDeepLink(url) {
+  console.log('Deep link received :', url);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      try { mainWindow.show(); } catch (e) {}
+      try { mainWindow.focus(); } catch (e) {}
+      try { app.focus({ steal: true }); } catch (e) { try { app.focus(); } catch(_) {} }
+      mainWindow.webContents.send('deep-link', url);
+    } catch (err) {
+      console.warn('Failed to forward deep link to renderer:', err);
+    }
+  } else {
+    queuedDeepLink = url;
+  }
+}
+
 async function restoreCookiesForSource(sourceUrl, cookies = []) {
   if (!sourceUrl || !Array.isArray(cookies) || cookies.length === 0) return { restored: 0 };
 
@@ -340,7 +344,7 @@ function getSystemLanguage() {
   const raw = app?.getLocale?.() || process.env.LANG || process.env.LANGUAGE || "en";
   const normalized = String(raw).trim().toLowerCase();
   const shortCode = normalized.split(/[-_.]/)[0];
-  return ["fr", "en", "es", "de", "ja"].includes(shortCode) ? shortCode : "en";
+  return ["fr", "en"].includes(shortCode) ? shortCode : "en";
 }
 
 function syncAppLanguage(language) {
@@ -356,8 +360,8 @@ function createWindow() {
   const isWindowsStyle = config.windowStyle === "windows"
 
   const windowIconPath = process.platform === "win32"
-    ? getResourcePath(path.join("assets", "icon.ico"))
-    : getResourcePath(path.join("assets", "icon.png"));
+    ? getAppAssetPath("icon.ico")
+    : getAppAssetPath("icon.png");
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -378,24 +382,28 @@ function createWindow() {
                                  backgroundColor: '#0a0a0a'
   })
 
-  // 1. Activation du menu clic droit
+  // Enable the context menu.
   setupContextMenu(mainWindow);
 
-  // 1.5. Ouvrir DevTools avec F12 (pour debug)
+  // Allow DevTools shortcuts for debugging.
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'F12' || (input.control && input.shift && input.key === 'i')) {
       mainWindow.webContents.toggleDevTools();
     }
+    if (input.key === '`' && input.type === 'keyDown' && !input.control && !input.alt && !input.shift && !input.meta) {
+      event.preventDefault();
+      injectDebugMenuScript(mainWindow);
+    }
   });
 
-  // 2. CORRECTION GOOGLE 403 & SIGNATURE APP
+  // Improve web requests and app identity for supported sites.
   let ua = mainWindow.webContents.getUserAgent();
   ua = ua.replace(/Electron\/[0-9\.]+\s?/, "");
   ua = ua.replace(/StreamixApp\s?/, "").trim();
   const finalUA = `${ua} StreamixApp`;
   mainWindow.webContents.setUserAgent(finalUA);
 
-  // 3. SÉCURITÉ : Autoriser Google et autres domaines
+  // Allow Google and related domains when needed.
   if (config.sourceUrl) {
     const filter = { urls: [config.sourceUrl + "*", "https://accounts.google.com/*", "https://www.google.com/*"] };
     session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
@@ -409,9 +417,9 @@ function createWindow() {
     });
   }
 
-  // Démarrage
+  // Start the app with the configured source or setup screen.
   const url = config.sourceUrl || "";
-  // Vérifier que c'est une URL valide (http/https)
+  // Validate that the configured URL uses http or https.
   if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
     mainWindow.loadURL(url)
   } else {
@@ -420,6 +428,11 @@ function createWindow() {
 
   mainWindow.once("ready-to-show", () => {
     mainWindow.show()
+    // If a deep-link was received before the window was ready, handle it now
+    if (queuedDeepLink) {
+      handleDeepLink(queuedDeepLink);
+      queuedDeepLink = null;
+    }
   })
 
   mainWindow.webContents.on("before-input-event", (event, input) => {
@@ -441,27 +454,69 @@ function createWindow() {
     updateDiscordPresence(getDiscordActivityFromUrl(mainWindow.webContents.getURL(), title));
   });
 
-  // --- INJECTIONS (Overlay & CSS & PLUGINS) ---
+  // Inject overlay, styles, and plugins after the page is ready.
   mainWindow.webContents.on("did-finish-load", () => {
     const currentUrl = mainWindow.webContents.getURL()
     if (currentUrl.startsWith("file:")) return
 
       const config = store.get("config")
 
-      // A. Animation CSS
+      // Inject animation CSS.
       if (config.animationsEnabled !== false) {
         try {
-          const cssPath = getResourcePath('animations.css');
+          const cssPath = path.join(__dirname, "animations", "animations.css");
           if (fs.existsSync(cssPath)) {
-            const cssContent = fs.readFileSync(cssPath, 'utf8');
+            const cssContent = fs.readFileSync(cssPath, "utf8");
             mainWindow.webContents.insertCSS(cssContent);
           }
         } catch (e) { console.error(e); }
       }
 
+      // Inject custom scrollbar styling.
+      try {
+        const scrollbarCss = `
+          ::-webkit-scrollbar {
+            width: 10px;
+            display: none !important;
+          }
+          html.streamix-scrollbar-visible ::-webkit-scrollbar,
+          body.streamix-scrollbar-visible ::-webkit-scrollbar,
+          html.streamix-scrollbar-visible *::-webkit-scrollbar,
+          body.streamix-scrollbar-visible *::-webkit-scrollbar {
+            display: block !important;
+            width: 10px !important;
+            background: rgba(255,255,255,0.10) !important;
+          }
+          html.streamix-scrollbar-visible ::-webkit-scrollbar-track,
+          body.streamix-scrollbar-visible ::-webkit-scrollbar-track,
+          html.streamix-scrollbar-visible *::-webkit-scrollbar-track,
+          body.streamix-scrollbar-visible *::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05) !important;
+            border-radius: 12px !important;
+            box-shadow: inset 5px 0 12px rgba(255,255,255,0.15) !important;
+          }
+          html.streamix-scrollbar-visible ::-webkit-scrollbar-thumb,
+          body.streamix-scrollbar-visible ::-webkit-scrollbar-thumb,
+          html.streamix-scrollbar-visible *::-webkit-scrollbar-thumb,
+          body.streamix-scrollbar-visible *::-webkit-scrollbar-thumb {
+            background: rgba(140, 140, 140, 0.85) !important;
+            border-radius: 8px !important;
+            border: 2px solid rgba(255,255,255,0.12) !important;
+            box-shadow: inset 2px 0 6px rgba(255,255,255,0.18) !important;
+          }
+          html.streamix-scrollbar-visible ::-webkit-scrollbar-thumb:hover,
+          body.streamix-scrollbar-visible ::-webkit-scrollbar-thumb:hover,
+          html.streamix-scrollbar-visible *::-webkit-scrollbar-thumb:hover,
+          body.streamix-scrollbar-visible *::-webkit-scrollbar-thumb:hover {
+            background: rgba(150, 150, 150, 0.95) !important;
+          }
+        `;
+        mainWindow.webContents.insertCSS(scrollbarCss);
+      } catch (e) { console.error(e); }
+
       const isWindowsStyle = config.windowStyle === "windows"
 
-      // B. Overlay & Drag Zone
+      // Inject the overlay and drag zone.
       const overlayScript = `
       (function() {
         if (document.getElementById('streamix-overlay-root')) return;
@@ -504,7 +559,7 @@ function createWindow() {
       `;
       mainWindow.webContents.executeJavaScript(overlayScript).catch(() => {});
 
-      // C. Bridge Sync
+      // Sync bridge data with the renderer.
       const bridgeScript = `
       (function() {
         if (window.StreamixStorage) {
@@ -529,7 +584,7 @@ function createWindow() {
 
       updateDiscordPresence(getDiscordActivityFromUrl(mainWindow.webContents.getURL(), mainWindow.webContents.getTitle()));
 
-      // --- D. INJECTION DES PLUGINS ---
+      // Inject enabled plugins.
       const plugins = store.get("plugins", []) || [];
       plugins.forEach(plugin => {
         if (plugin.enabled && plugin.path) {
@@ -549,7 +604,7 @@ function createWindow() {
       });
   })
 
-  // Navigation & Google Auth
+  // Handle navigation and OAuth-related popups.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     const config = store.get("config");
     try {
@@ -583,12 +638,12 @@ function createWindow() {
   })
 }
 
-// --- SCRIPT F1 ---
+// F1 overlay menu script.
 function injectF1MenuScript(win) {
   if (!win || win.isDestroyed()) return;
   const config = store.get("config");
 
-  const lang = config.language || 'fr';
+  const lang = syncAppLanguage(config.language);
   const t = (locales[lang] || locales.fr).f1Menu;
   const homeUrl = config.sourceUrl || "about:blank";
   const animsEnabled = config.animationsEnabled !== false;
@@ -606,6 +661,8 @@ function injectF1MenuScript(win) {
     try {
       let menu = document.getElementById('custom-menu');
       if (menu) {
+        const debugMenu = document.getElementById('streamix-debug-menu');
+        if (debugMenu) debugMenu.style.display = 'none';
         if (menu.style.display === 'none') {
           menu.style.display = 'block';
           if(${animsEnabled}) { menu.style.animation = 'none'; menu.offsetHeight; menu.style.animation = null; }
@@ -614,6 +671,8 @@ function injectF1MenuScript(win) {
         }
         return;
       }
+      const debugMenu = document.getElementById('streamix-debug-menu');
+      if (debugMenu) debugMenu.style.display = 'none';
       menu = document.createElement('div'); menu.id = 'custom-menu';
       const animStyle = ${animsEnabled} ? '' : 'animation: none !important; transition: none !important;';
       menu.style.cssText = 'position:fixed;top:50px;left:10px;z-index:2147483647;background:rgba(22, 27, 34, 0.95);backdrop-filter:blur(15px);border:1px solid #30363d;border-radius:6px;padding:6px 0;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,0.5);color:#c9d1d9;font-family:sans-serif; -webkit-app-region: no-drag;' + animStyle;
@@ -647,11 +706,138 @@ function injectF1MenuScript(win) {
   win.webContents.executeJavaScript(menuScript).catch(console.error);
 }
 
+function injectDebugMenuScript(win) {
+  if (!win || win.isDestroyed()) return;
+
+  const config = store.get("config");
+  const lang = syncAppLanguage(config.language);
+  const t = (locales[lang] || locales.fr).debugMenu || {};
+  const txtTitle = JSON.stringify(t.title || 'Debug Menu');
+  const txtClear = JSON.stringify(t.clearPlugins || 'Clear plugins');
+  const txtReset = JSON.stringify(t.resetData || 'Erase all data');
+  const txtClose = JSON.stringify(t.close || 'Close');
+  const txtConfirmClear = JSON.stringify(t.confirmClearPlugins || 'Remove all installed plugins?');
+  const txtConfirmReset = JSON.stringify(t.confirmReset || 'Erase all application data?');
+  const txtPluginsCleared = JSON.stringify(t.pluginsCleared || 'Plugins cleared.');
+  const txtResetting = JSON.stringify(t.resetTriggered || 'Resetting application...');
+  const txtShowScrollbar = JSON.stringify(t.showScrollbar || 'Show scrollbar');
+  const txtHideScrollbar = JSON.stringify(t.hideScrollbar || 'Hide scrollbar');
+  const txtScrollbarVisible = JSON.stringify(t.scrollbarVisible || 'Scrollbar visible');
+  const txtScrollbarHidden = JSON.stringify(t.scrollbarHidden || 'Scrollbar hidden');
+  const showScrollbars = config.showScrollbarOnDebug === true;
+
+  const debugMenuScript = `
+  (function() {
+    try {
+      let menu = document.getElementById('streamix-debug-menu');
+      if (menu) {
+        const f1Menu = document.getElementById('custom-menu');
+        if (f1Menu) f1Menu.style.display = 'none';
+        const currentlyVisible = menu.style.display !== 'none';
+        menu.style.display = currentlyVisible ? 'none' : 'block';
+        return;
+      }
+
+      const f1Menu = document.getElementById('custom-menu');
+      if (f1Menu) f1Menu.style.display = 'none';
+      menu = document.createElement('div');
+      menu.id = 'streamix-debug-menu';
+      menu.style.cssText = 'position:fixed;top:60px;left:10px;z-index:2147483647;background:rgba(20,24,29,0.96);border:1px solid #30363d;border-radius:12px;padding:14px;min-width:240px;box-shadow:0 16px 40px rgba(0,0,0,0.45);color:#c9d1d9;font-family:sans-serif;-webkit-app-region:no-drag;';
+
+      const title = document.createElement('div');
+      title.textContent = ${txtTitle};
+      title.style.cssText = 'font-size:14px;font-weight:700;margin-bottom:12px;';
+      menu.appendChild(title);
+
+      const status = document.createElement('div');
+      status.style.cssText = 'font-size:12px;color:#8b949e;min-height:18px;margin-top:8px;';
+      menu.appendChild(status);
+
+      const createButton = (text, action) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = text;
+        btn.style.cssText = 'display:block;width:100%;text-align:left;padding:10px 12px;margin:6px 0;border:none;border-radius:10px;background:#161b22;color:#c9d1d9;cursor:pointer;transition:background 0.2s;';
+        btn.onmouseover = () => btn.style.background = '#1f6feb';
+        btn.onmouseout = () => btn.style.background = '#161b22';
+        btn.onclick = action;
+        menu.appendChild(btn);
+        return btn;
+      };
+
+      let showScrollbars = ${showScrollbars};
+      const updateScrollbarDisplay = () => {
+        if (showScrollbars) {
+          document.body.classList.add('streamix-scrollbar-visible');
+          document.documentElement.classList.add('streamix-scrollbar-visible');
+        } else {
+          document.body.classList.remove('streamix-scrollbar-visible');
+          document.documentElement.classList.remove('streamix-scrollbar-visible');
+        }
+      };
+
+      const toggleBtn = createButton(showScrollbars ? ${txtHideScrollbar} : ${txtShowScrollbar}, async () => {
+        showScrollbars = !showScrollbars;
+        toggleBtn.textContent = showScrollbars ? ${txtHideScrollbar} : ${txtShowScrollbar};
+        status.textContent = showScrollbars ? ${txtScrollbarVisible} : ${txtScrollbarHidden};
+        if (window.electronAPI && window.electronAPI.setDebugPreference) {
+          try { await window.electronAPI.setDebugPreference('showScrollbarOnDebug', showScrollbars); } catch (e) { console.error('Failed to save debug preference', e); }
+        }
+        updateScrollbarDisplay();
+      });
+
+      createButton(${txtClear}, async () => {
+        if (window.confirm(${txtConfirmClear})) {
+          const result = await window.electronAPI.clearPlugins();
+          if (result?.success) {
+            status.textContent = ${txtPluginsCleared};
+            if (window.electronAPI && window.electronAPI.restart) {
+              await window.electronAPI.restart();
+            }
+          } else {
+            status.textContent = result?.error || 'Failed to clear plugins';
+          }
+        }
+      });
+
+      createButton(${txtReset}, () => {
+        if (window.confirm(${txtConfirmReset})) {
+          status.textContent = ${txtResetting};
+          window.electronAPI.resetApp();
+        }
+      });
+
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.textContent = ${txtClose};
+      closeBtn.style.cssText = 'display:block;width:100%;text-align:center;padding:8px 12px;margin-top:10px;border:none;border-radius:10px;background:#21262d;color:#8b949e;cursor:pointer;';
+      closeBtn.onclick = () => { menu.style.display = 'none'; updateScrollbarDisplay(); };
+      menu.appendChild(closeBtn);
+
+      document.body.appendChild(menu);
+      updateScrollbarDisplay();
+      setTimeout(() => {
+        document.addEventListener('mousedown', (e) => {
+          if (menu && !menu.contains(e.target)) {
+            menu.style.display = 'none';
+            updateScrollbarDisplay();
+          }
+        });
+      }, 50);
+    } catch (e) {
+      console.error('Streamix Debug Menu Error:', e);
+    }
+  })();
+  `;
+
+  win.webContents.executeJavaScript(debugMenuScript).catch(console.error);
+}
+
 function loadSetupScreen() {
-  const setupPath = getResourcePath("setup.html");
+  const setupPath = path.join(__dirname, "interface", "setup.html");
   mainWindow.loadFile(setupPath).catch(err => {
     console.error("Failed to load setup.html from:", setupPath, err);
-    // Emergency fallback: just display error
+    // Emergency fallback: display an error if setup.html cannot be loaded.
     mainWindow.webContents.loadURL("data:text/html,<h1>Erreur: Impossible de charger le fichier de configuration</h1>").catch(console.error);
   });
 }
@@ -751,7 +937,7 @@ function registerSupabaseHandlers() {
   if (supabaseHandlersRegistered) return;
 
   try {
-    supabaseApi = require("./supabase");
+    supabaseApi = require("./backend/supabase");
   } catch (error) {
     console.error("Supabase bridge initialization failed:", error);
     return;
@@ -761,7 +947,7 @@ function registerSupabaseHandlers() {
     return await supabaseApi.signInWithGitHub();
   });
 
-  ipcMain.handle("supabase-sign-in-discord", async () => {
+  ipcMain.handle("supabase-sign-in-discord", async (event) => {
     return await supabaseApi.signInWithDiscord();
   });
 
@@ -829,6 +1015,55 @@ app.whenReady().then(() => {
   createWindow();
   setupDiscordRichPresence();
   Menu.setApplicationMenu(null);
+
+  // --- DEBUT DE LA CONFIGURATION DU DEEP LINKING ---
+  const PROTOCOL_PREFIX = process.env.STREAMIX_PROTOCOL || 'streamix';
+
+  // Register the custom protocol handler
+  if (process.defaultApp) {
+    if (process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient(PROTOCOL_PREFIX, process.execPath, [ path.resolve(process.argv[1]) ]);
+    }
+  } else {
+    app.setAsDefaultProtocolClient(PROTOCOL_PREFIX);
+  }
+
+  // 1. Lock to ensure a single instance (Windows / Linux)
+  const gotTheLock = app.requestSingleInstanceLock();
+
+  if (!gotTheLock) {
+    // If an instance is already running, quit this one
+    app.quit();
+  } else {
+    // When a second instance is attempted (e.g., user clicks a link on Windows/Linux)
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+      // 1. Bring main window to front
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+        mainWindow.show();
+      }
+
+      // 2. Retrieve the clicked URL (usually the last argument on Windows/Linux)
+      const url = commandLine.pop();
+      if (url && url.startsWith(`${PROTOCOL_PREFIX}://`)) {
+        handleDeepLink(url);
+      }
+    });
+
+    // 2. Handle open-url on macOS
+    app.on('open-url', (event, url) => {
+      event.preventDefault();
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+        mainWindow.show();
+      }
+      handleDeepLink(url);
+    });
+  }
+
+  // --- FIN DE LA CONFIGURATION DU DEEP LINKING ---
 
   ipcMain.handle("minimize-window", () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -918,15 +1153,35 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("save-config", (event, newConfig) => {
-    // Site selection: map to URLs
+    // Map selected site names to their URLs.
     const siteMap = {
-      "franime": "https://franime.fr/",
-      "anime-sama": "https://anime-sama.pw/",
+      "netflix": "https://www.netflix.com/",
+      "disneyplus": "https://www.disneyplus.com/",
+      "crunchyroll": "https://www.crunchyroll.com/fr/",
     };
     
-    // Si sourceUrl n'est pas déjà fourni (pour les URLs custom), le mapper depuis selectedSite
+    // If sourceUrl is not provided, derive it from the selected site.
     if (!newConfig.sourceUrl && newConfig.selectedSite && siteMap[newConfig.selectedSite]) {
       newConfig.sourceUrl = siteMap[newConfig.selectedSite];
+    }
+
+    if (newConfig.sourceUrl) {
+      try {
+        const normalizedUrl = new URL(newConfig.sourceUrl);
+        if (!normalizedUrl.pathname || normalizedUrl.pathname === '') {
+          normalizedUrl.pathname = '/';
+        }
+        const hostname = (normalizedUrl.hostname || '').toLowerCase();
+        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+        // Require a dot in hostname for remote hosts to avoid invalid single-label hosts like "ohdowiwq"
+        if (!isLocalhost && hostname.indexOf('.') === -1) {
+          return { success: false, error: 'invalid_url' };
+        }
+        newConfig.sourceUrl = normalizedUrl.toString();
+      } catch (error) {
+        // Invalid URL -> return error so renderer can show localized message
+        return { success: false, error: 'invalid_url' };
+      }
     }
 
     const currentConfig = store.get("config");
@@ -940,17 +1195,32 @@ app.whenReady().then(() => {
     if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.close();
 
     if (restartNeeded) {
+      // return success (app will relaunch)
       app.relaunch();
       app.exit(0);
-      return;
+      return { success: true };
     }
 
     if (newConfig.sourceUrl) { mainWindow.loadURL(newConfig.sourceUrl); } else { app.relaunch(); app.exit(0); }
+
+    return { success: true };
   });
 
   ipcMain.handle("get-preferences", () => store.get("config"));
   ipcMain.handle("get-current-language", () => syncAppLanguage(store.get("config")?.language));
   ipcMain.handle("get-app-translations", () => locales);
+  ipcMain.handle("get-setup-translations", () => {
+    const currentLang = syncAppLanguage(store.get("config")?.language);
+    return { 
+      language: currentLang, 
+      translations: locales[currentLang] || locales.en 
+    };
+  });
+  ipcMain.handle("get-app-version", () => app.getVersion?.() || store.get("config")?.version || "0.0.0");
+  ipcMain.handle("set-debug-preference", (event, key, value) => {
+    const currentConfig = store.get("config") || {};
+    store.set("config", { ...currentConfig, [key]: value });
+  });
   ipcMain.handle("get-plugins", () => store.get("plugins"));
   ipcMain.handle("get-plugin-store", async () => {
     try {
@@ -995,7 +1265,7 @@ app.whenReady().then(() => {
     }
   });
 
-  // --- SÉLECTION DES PLUGINS AMÉLIORÉE (AUTEUR + GITHUB + VERSION) ---
+  // Improved plugin selection with author, GitHub, and version metadata.
   ipcMain.handle("select-plugin-file", async () => {
     const result = await dialog.showOpenDialog(settingsWindow || mainWindow, {
       filters: [{ name: "JavaScript", extensions: ["js"] }],
@@ -1009,7 +1279,7 @@ app.whenReady().then(() => {
 
     if (plugins.find(p => p.path === pPath)) return { success: false, error: "Déjà installé" };
 
-    // Copier le plugin dans le dossier de l'app
+    // Copy the plugin into the app data directory.
     let appPluginPath;
     try {
       appPluginPath = copyPluginToAppFolder(pPath);
@@ -1040,7 +1310,7 @@ app.whenReady().then(() => {
     plugins = plugins.filter(p => p.path !== pPath);
     store.set("plugins", plugins);
     
-    // Supprimer le fichier du dossier de l'app
+    // Remove the plugin file from the app data directory.
     try {
       if (fs.existsSync(pPath)) {
         fs.unlinkSync(pPath);
@@ -1050,6 +1320,26 @@ app.whenReady().then(() => {
     }
     
     return { success: true };
+  });
+
+  ipcMain.handle("clear-plugins", async () => {
+    try {
+      const plugins = store.get("plugins", []) || [];
+      for (const plugin of plugins) {
+        if (plugin?.path && fs.existsSync(plugin.path)) {
+          try {
+            fs.unlinkSync(plugin.path);
+          } catch (err) {
+            console.error("Error deleting plugin file:", plugin.path, err);
+          }
+        }
+      }
+      store.set("plugins", []);
+      return { success: true };
+    } catch (error) {
+      console.error("Error clearing plugins:", error);
+      return { success: false, error: String(error) };
+    }
   });
 
   ipcMain.handle("toggle-plugin", (e, pPath) => {
@@ -1079,9 +1369,9 @@ app.whenReady().then(() => {
     settingsWindow = new BrowserWindow({
       width: 800, height: 600, resizable: false, parent: mainWindow, modal: false,
       frame: false, show: false, backgroundColor: "#0d1117",
-      webPreferences: { nodeIntegration: false, contextIsolation: true, preload: getResourcePath("preload.js") }
+      webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, "preload.js") }
     });
-    settingsWindow.loadFile(getResourcePath("settings.html"));
+    settingsWindow.loadFile(path.join(__dirname, "interface", "settings.html"));
     settingsWindow.webContents.on('before-input-event', (event, input) => {
       if (input.key === 'F12' || (input.control && input.shift && input.key === 'i')) {
         settingsWindow.webContents.toggleDevTools();
