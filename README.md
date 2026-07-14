@@ -41,6 +41,13 @@ Pluberry is available for **Windows**, **Linux**, and **macOS**.
 
 ---
 
+## Screenshot
+<img width="1081" height="567" alt="{ACAC6F5F-8435-4C36-84BB-42FC286D8F3A}" src="https://github.com/user-attachments/assets/1cc72138-7268-4b49-a22b-a2cf5b807809" />
+<p align="center">This is the setup menu.</p>
+<p align="center"><small><em>Further screenshots are omitted to respect intellectual property and copyright policies.</em></small></p>
+
+---
+
 ## Installation (Core Development)
 
 If you want to contribute to the application source code or build your own version.
