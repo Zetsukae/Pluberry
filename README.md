@@ -18,8 +18,8 @@ Pluberry is available for **Windows**, **Linux**, and **macOS**.
 | System | Type | Link |
 | :--- | :--- | :--- |
 | **Windows** | `.exe` installer | Available |
-| **Linux** | Portable `.AppImage` | Available |
-| **MacOS** | Portable `.dmg` | Available |
+| **Linux** | Portable `.AppImage` | Need Fix |
+| **MacOS** | Portable `.dmg` | Need Fix |
 
 > *Windows download links may be added a few days after Linux. Check the [Releases] tab regularly.*
 
