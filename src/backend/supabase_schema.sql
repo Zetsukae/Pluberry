@@ -16,14 +16,26 @@ CREATE TABLE IF NOT EXISTS public.sources (
 
 CREATE INDEX IF NOT EXISTS sources_user_id_idx ON public.sources (user_id);
 
--- Optional: row level security so each authenticated user can only access their own rows
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.sources TO authenticated;
+
 ALTER TABLE public.sources ENABLE ROW LEVEL SECURITY;
 
--- Policy: allow authenticated users to manage their own sources
-CREATE POLICY "Users can manage their sources" ON public.sources
-  FOR ALL
-  USING ( auth.uid() = user_id )
-  WITH CHECK ( auth.uid() = user_id );
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'sources'
+      AND policyname = 'Users can manage their sources'
+  ) THEN
+    CREATE POLICY "Users can manage their sources" ON public.sources
+      FOR ALL
+      TO authenticated
+      USING ( auth.uid() = user_id )
+      WITH CHECK ( auth.uid() = user_id );
+  END IF;
+END
+$$;
 
 -- Note: Supabase Auth exposes auth.uid() when JWTs are configured.
 -- If you plan to insert rows from server-side code using a service_role key,

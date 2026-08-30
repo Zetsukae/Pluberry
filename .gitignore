@@ -14,7 +14,6 @@ src/backend/.env.*
 pluberry-supabase-auth.json
 src/backend/streamix-supabase-auth.json
 src/backend/pluberry-supabase-auth.json
-pluberry-supabase-auth.json
 
 # Generated assets
 src/assets/generated/

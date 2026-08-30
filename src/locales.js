@@ -53,7 +53,8 @@ module.exports = {
         errorInvalidUrl: "Veuillez entrer une URL valide (ex : https://example.com/)",
         errorDuplicateUrl: "Cette URL est déjà ajoutée",
         errorNoSelection: "Veuillez sélectionner une source",
-        launchPluberry: "Lancer Pluberry"
+        launchPluberry: "Lancer Pluberry",
+        loginWithDiscord: "Se connecter avec Discord"
       },
       auth: {
         successTitle: "Connexion réussie",
@@ -81,6 +82,8 @@ module.exports = {
         connectWithGitHub: "Se connecter avec GitHub",
         connected: "Connecté",
         connectedWith: "Vous êtes maintenant connecté avec :",
+        lastSaved: "Dernière sauvegarde",
+        neverSaved: "Jamais",
         testSave: "Tester la sauvegarde",
         saveInProgress: "Sauvegarde en cours",
         saved: "Sauvegardé",
@@ -164,7 +167,8 @@ module.exports = {
         errorInvalidUrl: "Please enter a valid URL (e.g. https://example.com/)",
         errorDuplicateUrl: "This URL is already added",
         errorNoSelection: "Please select a source",
-        launchPluberry: "Launch Pluberry"
+        launchPluberry: "Launch Pluberry",
+        loginWithDiscord: "Login With Discord"
       },
       auth: {
         successTitle: "Connection successful",
@@ -192,6 +196,8 @@ module.exports = {
         connectWithGitHub: "Sign in with GitHub",
         connected: "Connected",
         connectedWith: "You are now connected with:",
+        lastSaved: "Last saved",
+        neverSaved: "Never",
         testSave: "Test save",
         saveInProgress: "Saving",
         saved: "Saved",
@@ -240,7 +246,8 @@ module.exports = {
         errorInvalidUrl: "Por favor ingresa una URL válida (p. ej., https://example.com/)",
         errorDuplicateUrl: "Esta URL ya está agregada",
         errorNoSelection: "Por favor selecciona una fuente",
-        launchPluberry: "Iniciar Pluberry"
+        launchPluberry: "Iniciar Pluberry",
+        loginWithDiscord: "Iniciar sesión con Discord"
       },
       auth: {
         successTitle: "Conexión correcta",
@@ -268,6 +275,8 @@ module.exports = {
         connectWithGitHub: "Iniciar sesión con GitHub",
         connected: "Conectado",
         connectedWith: "Ahora estás conectado con:",
+        lastSaved: "Último guardado",
+        neverSaved: "Nunca",
         testSave: "Probar guardado",
         saveInProgress: "Guardando",
         saved: "Guardado",
@@ -316,7 +325,8 @@ module.exports = {
         errorInvalidUrl: "Bitte geben Sie eine gültige URL ein (z. B. https://example.com/)",
         errorDuplicateUrl: "Diese URL wurde bereits hinzugefügt",
         errorNoSelection: "Bitte wählen Sie eine Quelle aus",
-        launchPluberry: "Pluberry starten"
+        launchPluberry: "Pluberry starten",
+        loginWithDiscord: "Mit Discord anmelden"
       },
       auth: {
         successTitle: "Verbindung erfolgreich",
@@ -344,6 +354,8 @@ module.exports = {
         connectWithGitHub: "Mit GitHub anmelden",
         connected: "Verbunden",
         connectedWith: "Sie sind jetzt verbunden mit:",
+        lastSaved: "Zuletzt gespeichert",
+        neverSaved: "Nie",
         testSave: "Speichern testen",
         saveInProgress: "Wird gespeichert",
         saved: "Gespeichert",
@@ -392,7 +404,8 @@ module.exports = {
         errorInvalidUrl: "有効なURLを入力してください（例: https://example.com/）",
         errorDuplicateUrl: "このURLは既に追加されています",
         errorNoSelection: "ソースを選択してください",
-        launchPluberry: "Pluberryを起動"
+        launchPluberry: "Pluberryを起動",
+        loginWithDiscord: "Discordでログイン"
       },
       auth: {
         successTitle: "接続に成功しました",
@@ -420,6 +433,8 @@ module.exports = {
         connectWithGitHub: "GitHubでログイン",
         connected: "接続済み",
         connectedWith: "次のアカウントで接続されています:",
+        lastSaved: "最終保存",
+        neverSaved: "未保存",
         testSave: "保存テスト",
         saveInProgress: "保存中",
         saved: "保存済み",

@@ -6,6 +6,20 @@ This guide explains how to configure the Supabase and Discord authentication flo
 
 Create a Supabase project and configure the following values in the Supabase dashboard.
 
+### Database table
+
+Run `supabase_schema.sql` in Supabase Dashboard > SQL Editor. It creates the `sources` table, grants access to the `authenticated` role, and restricts each user to their own rows with RLS.
+
+After signing in and saving a source in Pluberry, verify the rows with:
+
+```sql
+select id, user_id, name, data, inserted_at, updated_at
+from public.sources
+order by inserted_at desc;
+```
+
+The `data` column should contain the source URL and its JSON metadata. If the table stays empty, check Authentication > Users, the RLS policy, and the application log for the exact Supabase error.
+
 ### Authentication settings
 
 - Set the Site URL to:
@@ -61,3 +75,25 @@ When the user signs in with Discord, the app opens the OAuth flow and returns to
 - If you use a different host or port, update the environment variables accordingly.
 - Keep your `.env` file private and do not commit it.
 - You can use different Providers than Discord (ex: GitHub, Apple, Google, ...)
+
+## 5. Settings plugins
+
+An enabled plugin can add a section to the Settings window with the `window.pluberrySettings` API:
+
+```js
+(function () {
+  window.pluberrySettings.addSection({
+    id: "my-plugin-settings",
+    title: "My plugin",
+    render: (section) => {
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = "0";
+      slider.max = "100";
+      section.appendChild(slider);
+    }
+  });
+})();
+```
+
+Plugin-specific values can be persisted with `getPluginSettings(pluginName)` and `savePluginSettings(pluginName, values)`. The built-in example is `src/plugins/iloverainbow.js`.

@@ -7,6 +7,7 @@ const { locales } = require("./locales")
 const Store = require("electron-store")
 const { loadDotEnv } = require("./backend/env-loader")
 const { getResourcePath, getAppAssetPath } = require("./main/app-config")
+const { getLatestSource, getSourceUrl } = require("./main/source-sync")
 const DiscordRPC = require("discord-rpc")
 
 loadDotEnv([
@@ -14,7 +15,7 @@ loadDotEnv([
   path.join(app?.getPath?.('userData') || __dirname, '.env')
 ]);
 
-// Import the right-click menu.
+// Load the right-click menu handler.
 const setupContextMenu = require("./contextMenu")
 
 const PLUGIN_STORE_URL = "https://raw.githubusercontent.com/Zetsukae/Pluberry/website/sources/index.html";
@@ -248,7 +249,6 @@ const store = new Store({
       animationsEnabled: true
     },
     plugins: [],
-    customUrls: [],
     siteData: {}
   }
 })
@@ -261,6 +261,45 @@ let unsubscribeAuth = null
 let discordClient = null
 let discordReady = false
 let discordActivity = null
+let failedSourceUrl = ""
+
+async function restoreSourcesFromCloud({ navigate = false } = {}) {
+  if (!supabaseApi?.restoreSession || !supabaseApi?.getUser || !supabaseApi?.loadSources) {
+    return { success: false, sourceUrl: "" };
+  }
+
+  try {
+    const session = await supabaseApi.restoreSession();
+    if (!session) return { success: false, sourceUrl: "" };
+
+    const userResult = await supabaseApi.getUser();
+    const userId = userResult?.data?.user?.id;
+    if (!userId) return { success: false, sourceUrl: "" };
+
+    const sourcesResult = await supabaseApi.loadSources(userId);
+    if (sourcesResult?.error || !Array.isArray(sourcesResult?.data)) {
+      return { success: false, sourceUrl: "" };
+    }
+
+    const entries = sourcesResult.data;
+    const latestSource = getLatestSource(entries);
+    const currentConfig = store.get("config") || {};
+    const sourceUrl = currentConfig.sourceUrl || getSourceUrl(latestSource);
+
+    if (!currentConfig.sourceUrl && sourceUrl) {
+      store.set("config", { ...currentConfig, sourceUrl });
+    }
+
+    if (navigate && sourceUrl && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.loadURL(sourceUrl);
+    }
+
+    return { success: Boolean(sourceUrl), sourceUrl };
+  } catch (error) {
+    console.warn("Unable to restore sources from Supabase:", error);
+    return { success: false, sourceUrl: "" };
+  }
+}
 
 async function collectCookiesForSource(sourceUrl) {
   if (!sourceUrl) return [];
@@ -381,6 +420,12 @@ function createWindow() {
                                  frame: isWindowsStyle,
                                  backgroundColor: '#0a0a0a'
   })
+
+  mainWindow.webContents.on("did-fail-load", (_event, errorCode, _errorDescription, validatedURL, isMainFrame) => {
+    if (!isMainFrame || !validatedURL || validatedURL.startsWith("file:")) return;
+    failedSourceUrl = validatedURL;
+    loadOfflineScreen();
+  });
 
   // Enable the context menu.
   setupContextMenu(mainWindow);
@@ -534,7 +579,7 @@ function createWindow() {
         .streamix-btn:hover { background: rgba(255, 255, 255, 0.2) !important; }
         .streamix-btn img { pointer-events: none !important; width: 30px !important; height: 30px !important; }
 
-        /* CORRECTION DRAG ZONE : Hauteur 32px exacte */
+        /* Keep the drag zone aligned with the injected controls. */
         #streamix-drag-zone { position: fixed; top: 0; left: 0; width: 100%; height: 32px; z-index: 2147483646; -webkit-app-region: drag; pointer-events: none; }
         \`;
         root.appendChild(style);
@@ -842,6 +887,14 @@ function loadSetupScreen() {
   });
 }
 
+function loadOfflineScreen() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const offlinePath = path.join(__dirname, "interface", "offline.html");
+  mainWindow.loadFile(offlinePath).catch(err => {
+    console.error("Failed to load offline.html:", err);
+  });
+}
+
 function getDiscordActivityFromUrl(url = "", title = "") {
   const fallbackTitle = title && title.trim() ? title.trim() : "Pluberry";
 
@@ -984,6 +1037,36 @@ function registerSupabaseHandlers() {
     return await supabaseApi.loadSources(userId);
   });
 
+  ipcMain.handle("restore-synced-sources", async () => {
+    return await restoreSourcesFromCloud({ navigate: true });
+  });
+
+  ipcMain.handle("sync-custom-urls", async (event, urls) => {
+    try {
+      const session = await supabaseApi?.restoreSession?.();
+      const userId = session ? (await supabaseApi.getUser())?.data?.user?.id : null;
+      if (!userId || !Array.isArray(urls)) {
+        return { success: false, error: "Supabase session unavailable" };
+      }
+
+      for (const [index, url] of urls.entries()) {
+        const result = await supabaseApi.saveSource(userId, {
+          name: url,
+          data: url,
+          sourceUrl: url,
+          timestamp: new Date(Date.now() + index).toISOString(),
+          isCurrent: index === urls.length - 1
+        });
+        if (result?.error) throw result.error;
+      }
+      store.delete("customUrls");
+      return { success: true };
+    } catch (error) {
+      console.warn("Unable to sync custom URLs to Supabase:", error);
+      return { success: false, error: error.message || String(error) };
+    }
+  });
+
   ipcMain.handle("collect-source-cookies", async (event, sourceUrl) => {
     return await collectCookiesForSource(sourceUrl);
   });
@@ -1013,10 +1096,13 @@ function registerSupabaseHandlers() {
 app.whenReady().then(() => {
   registerSupabaseHandlers();
   createWindow();
+  restoreSourcesFromCloud({ navigate: true }).catch(error => {
+    console.warn("Background source restoration failed:", error);
+  });
   setupDiscordRichPresence();
   Menu.setApplicationMenu(null);
 
-  // --- DEBUT DE LA CONFIGURATION DU DEEP LINKING ---
+  // --- DEEP LINK CONFIGURATION ---
   const PROTOCOL_PREFIX = process.env.STREAMIX_PROTOCOL || 'streamix';
 
   // Register the custom protocol handler
@@ -1063,7 +1149,7 @@ app.whenReady().then(() => {
     });
   }
 
-  // --- FIN DE LA CONFIGURATION DU DEEP LINKING ---
+  // --- END DEEP LINK CONFIGURATION ---
 
   ipcMain.handle("minimize-window", () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1113,6 +1199,19 @@ app.whenReady().then(() => {
     }
     return false;
   });
+  ipcMain.handle("retry-source", async () => {
+    if (!failedSourceUrl || !mainWindow || mainWindow.isDestroyed()) {
+      return { success: false };
+    }
+    const sourceUrl = failedSourceUrl;
+    try {
+      await mainWindow.loadURL(sourceUrl);
+      failedSourceUrl = "";
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message || String(error) };
+    }
+  });
   ipcMain.handle("open-external-link", (e, url) => shell.openExternal(url));
   ipcMain.handle("show-context-menu", (event, menuItems) => {
     const menu = Menu.buildFromTemplate(menuItems.map(item => ({
@@ -1123,6 +1222,12 @@ app.whenReady().then(() => {
   });
   ipcMain.handle("reset-application", async () => {
     try {
+      const session = await supabaseApi?.restoreSession?.();
+      const userId = session ? (await supabaseApi.getUser())?.data?.user?.id : null;
+      if (userId && supabaseApi?.deleteSources) {
+        const result = await supabaseApi.deleteSources(userId);
+        if (result?.error) throw result.error;
+      }
       if (supabaseApi?.clearPersistedAuth) {
         supabaseApi.clearPersistedAuth();
       }
@@ -1130,7 +1235,8 @@ app.whenReady().then(() => {
         await supabaseApi.signOut().catch(() => {});
       }
     } catch (error) {
-      console.warn("Reset auth cleanup error:", error);
+      console.warn("Reset remote data cleanup error:", error);
+      return { success: false, error: error.message || String(error) };
     }
 
     store.clear();
@@ -1144,6 +1250,7 @@ app.whenReady().then(() => {
     });
     app.relaunch();
     app.exit(0);
+    return { success: true };
   });
 
   ipcMain.on("bridge-sync-data", (event, payload) => {
@@ -1153,14 +1260,14 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("save-config", (event, newConfig) => {
-    // Map selected site names to their URLs.
+    // Map built-in site names to their URLs.
     const siteMap = {
       "netflix": "https://www.netflix.com/",
       "disneyplus": "https://www.disneyplus.com/",
       "crunchyroll": "https://www.crunchyroll.com/fr/",
     };
     
-    // If sourceUrl is not provided, derive it from the selected site.
+    // Derive sourceUrl from the selected built-in site when needed.
     if (!newConfig.sourceUrl && newConfig.selectedSite && siteMap[newConfig.selectedSite]) {
       newConfig.sourceUrl = siteMap[newConfig.selectedSite];
     }
@@ -1179,7 +1286,7 @@ app.whenReady().then(() => {
         }
         newConfig.sourceUrl = normalizedUrl.toString();
       } catch (error) {
-        // Invalid URL -> return error so renderer can show localized message
+        // Return an error so the renderer can show a localized message.
         return { success: false, error: 'invalid_url' };
       }
     }
@@ -1195,7 +1302,7 @@ app.whenReady().then(() => {
     if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.close();
 
     if (restartNeeded) {
-      // return success (app will relaunch)
+      // Return success before relaunching the application.
       app.relaunch();
       app.exit(0);
       return { success: true };
@@ -1222,6 +1329,37 @@ app.whenReady().then(() => {
     store.set("config", { ...currentConfig, [key]: value });
   });
   ipcMain.handle("get-plugins", () => store.get("plugins"));
+  ipcMain.handle("get-settings-plugins", () => {
+    const plugins = store.get("plugins", []) || [];
+    const pluginEntries = [
+      { name: "ILOVERAINBOW", path: path.join(__dirname, "plugins", "iloverainbow.js") },
+      ...plugins
+    ];
+
+    return pluginEntries
+      .filter(plugin => plugin.name === "ILOVERAINBOW" || plugin.enabled !== false)
+      .map(plugin => {
+        try {
+          return fs.existsSync(plugin.path)
+            ? { name: plugin.name, code: fs.readFileSync(plugin.path, "utf8") }
+            : null;
+        } catch (error) {
+          console.warn(`Unable to read settings plugin ${plugin.name}:`, error);
+          return null;
+        }
+      })
+      .filter(Boolean);
+  });
+  ipcMain.handle("get-plugin-settings", (event, pluginName) => {
+    return store.get(`pluginSettings.${pluginName}`, {});
+  });
+  ipcMain.handle("save-plugin-settings", (event, pluginName, settings) => {
+    if (!pluginName || !settings || typeof settings !== "object" || Array.isArray(settings)) {
+      return { success: false, error: "Invalid plugin settings" };
+    }
+    store.set(`pluginSettings.${pluginName}`, settings);
+    return { success: true };
+  });
   ipcMain.handle("get-plugin-store", async () => {
     try {
       const html = await fetchRemoteText(PLUGIN_STORE_URL);
@@ -1265,7 +1403,7 @@ app.whenReady().then(() => {
     }
   });
 
-  // Improved plugin selection with author, GitHub, and version metadata.
+  // Preserve author, GitHub, and version metadata when installing plugins.
   ipcMain.handle("select-plugin-file", async () => {
     const result = await dialog.showOpenDialog(settingsWindow || mainWindow, {
       filters: [{ name: "JavaScript", extensions: ["js"] }],
@@ -1279,7 +1417,7 @@ app.whenReady().then(() => {
 
     if (plugins.find(p => p.path === pPath)) return { success: false, error: "Déjà installé" };
 
-    // Copy the plugin into the app data directory.
+    // Copy the plugin into the application data directory.
     let appPluginPath;
     try {
       appPluginPath = copyPluginToAppFolder(pPath);
@@ -1310,7 +1448,7 @@ app.whenReady().then(() => {
     plugins = plugins.filter(p => p.path !== pPath);
     store.set("plugins", plugins);
     
-    // Remove the plugin file from the app data directory.
+    // Remove the plugin file from the application data directory.
     try {
       if (fs.existsSync(pPath)) {
         fs.unlinkSync(pPath);
@@ -1353,12 +1491,27 @@ app.whenReady().then(() => {
     return { success: false };
   });
 
-  ipcMain.handle("get-custom-urls", () => {
-    return store.get("customUrls", []);
+  ipcMain.handle("get-custom-urls", async () => {
+    try {
+      const session = await supabaseApi?.restoreSession?.();
+      const userId = session ? (await supabaseApi.getUser())?.data?.user?.id : null;
+      if (!userId) return store.get("customUrls", []);
+
+      const result = await supabaseApi.loadSources(userId);
+      if (result?.error || !Array.isArray(result?.data)) return [];
+      return result.data.map(getSourceUrl).filter(Boolean).filter((url, index, urls) => urls.indexOf(url) === index);
+    } catch (error) {
+      console.warn("Unable to load custom URLs from Supabase:", error);
+      return [];
+    }
   });
 
-  ipcMain.handle("save-custom-urls", (event, urls) => {
-    store.set("customUrls", urls);
+  ipcMain.handle("save-custom-urls", async (event, urls) => {
+    const session = await supabaseApi?.restoreSession?.();
+    const userId = session ? (await supabaseApi.getUser())?.data?.user?.id : null;
+    if (!userId && Array.isArray(urls)) {
+      store.set("customUrls", urls);
+    }
     return { success: true };
   });
 

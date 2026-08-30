@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   hideWindow: () => ipcRenderer.invoke("hide-window"),
   showWindow: () => ipcRenderer.invoke("show-window"),
   focusWindow: () => ipcRenderer.invoke("focus-window"),
+  retrySource: () => ipcRenderer.invoke("retry-source"),
 
   triggerF1Menu: () => ipcRenderer.invoke("trigger-f1-menu"),
 
@@ -23,6 +24,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   closeSettings: () => ipcRenderer.invoke("close-settings"),
 
   getPlugins: () => ipcRenderer.invoke("get-plugins"),
+  getSettingsPlugins: () => ipcRenderer.invoke("get-settings-plugins"),
+  getPluginSettings: (pluginName) => ipcRenderer.invoke("get-plugin-settings", pluginName),
+  savePluginSettings: (pluginName, settings) => ipcRenderer.invoke("save-plugin-settings", pluginName, settings),
   getPluginStore: () => ipcRenderer.invoke("get-plugin-store"),
   installPluginFromStore: (plugin) => ipcRenderer.invoke("install-plugin-from-store", plugin),
   selectPluginFile: () => ipcRenderer.invoke("select-plugin-file"),
@@ -46,6 +50,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   authRestoreSession: () => ipcRenderer.invoke("supabase-restore-session"),
   saveSource: (userId, source) => ipcRenderer.invoke("supabase-save-source", userId, source),
   loadSources: (userId) => ipcRenderer.invoke("supabase-load-sources", userId),
+  restoreSyncedSources: () => ipcRenderer.invoke("restore-synced-sources"),
+  syncCustomUrls: (urls) => ipcRenderer.invoke("sync-custom-urls", urls),
   collectCookiesForUrl: (sourceUrl) => ipcRenderer.invoke("collect-source-cookies", sourceUrl),
   restoreCookiesForUrl: (sourceUrl, cookies) => ipcRenderer.invoke("restore-source-cookies", sourceUrl, cookies)
 });

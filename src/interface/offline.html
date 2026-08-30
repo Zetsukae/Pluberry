@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion impossible</title>
+  <style>
+    :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #f0f6fc; --muted: #8b949e; --blue: #1f6feb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--text); font-family: "Segoe UI", sans-serif; }
+    #pluberry-home-btn, #streamix-home-btn { display: none !important; }
+    #drag-zone { position: fixed; top: 0; left: 0; width: 100%; height: 32px; z-index: 2147483646; -webkit-app-region: drag; pointer-events: none; }
+    #window-controls { position: fixed; top: 10px; right: 10px; display: flex; gap: 8px; z-index: 2147483647; -webkit-app-region: no-drag; }
+    .streamix-btn { width: 32px !important; height: 32px !important; min-width: 0 !important; flex: none !important; padding: 0 !important; border: none !important; border-radius: 8px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; background: rgba(0, 0, 0, 0.5) !important; color: #ffffff !important; backdrop-filter: blur(10px) !important; -webkit-app-region: no-drag !important; pointer-events: auto !important; z-index: 2147483647 !important; transition: background 0.3s ease !important; }
+    .streamix-btn:hover { background: rgba(255, 255, 255, 0.2) !important; }
+    #close-btn, #close-btn:hover, #close-btn:focus { outline: none !important; box-shadow: none !important; }
+    .panel { width: min(440px, calc(100vw - 40px)); padding: 32px; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 18px 45px rgba(0,0,0,.35); }
+    .icon { font-size: 42px; margin-bottom: 16px; }
+    h1 { margin: 0 0 12px; font-size: 22px; }
+    p { margin: 0 0 24px; color: var(--muted); line-height: 1.5; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button { flex: 1; min-width: 150px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: #21262d; font-size: 14px; cursor: pointer; }
+    button.primary { background: var(--blue); border-color: var(--blue); }
+    button:hover { filter: brightness(1.15); }
+    button:disabled { opacity: .6; cursor: wait; }
+  </style>
+</head>
+<body>
+  <div id="drag-zone" aria-hidden="true"></div>
+  <div id="window-controls">
+    <button id="minimize-btn" class="streamix-btn" type="button" aria-label="Minimize">─</button>
+    <button id="close-btn" class="streamix-btn" type="button" aria-label="Close">✕</button>
+  </div>
+  <main class="panel">
+    <div class="icon" aria-hidden="true">&#9888;</div>
+    <h1 id="title">Connexion impossible</h1>
+    <p id="message">Pluberry ne peut pas charger cette source. Vérifiez votre connexion Internet ou réessayez plus tard.</p>
+    <div class="actions">
+      <button id="retry" class="primary">Réessayer</button>
+    </div>
+  </main>
+  <script>
+    const retry = document.getElementById('retry');
+    const message = document.getElementById('message');
+    const translations = {
+      fr: { title: 'Connexion impossible', message: 'Pluberry ne peut pas charger cette source. Vérifiez votre connexion Internet ou réessayez plus tard.', retry: 'Réessayer', retrying: 'Nouvelle tentative...', stillOffline: 'Toujours aucune connexion. Vérifiez votre réseau puis réessayez.' },
+      en: { title: 'Connection unavailable', message: 'Pluberry cannot load this source. Check your Internet connection or try again later.', retry: 'Retry', retrying: 'Trying again...', stillOffline: 'Still offline. Check your network and try again.' },
+      es: { title: 'Conexión no disponible', message: 'Pluberry no puede cargar esta fuente. Comprueba tu conexión a Internet o inténtalo más tarde.', retry: 'Reintentar', retrying: 'Reintentando...', stillOffline: 'Sigues sin conexión. Comprueba tu red e inténtalo de nuevo.' },
+      de: { title: 'Verbindung nicht verfügbar', message: 'Pluberry kann diese Quelle nicht laden. Prüfe deine Internetverbindung oder versuche es später erneut.', retry: 'Erneut versuchen', retrying: 'Erneuter Versuch...', stillOffline: 'Noch immer offline. Prüfe dein Netzwerk und versuche es erneut.' },
+      ja: { title: '接続できません', message: 'Pluberryはこのソースを読み込めません。インターネット接続を確認して、もう一度お試しください。', retry: '再試行', retrying: '再試行中...', stillOffline: 'まだ接続できません。ネットワークを確認して再試行してください。' }
+    };
+    (async () => {
+      const data = await Promise.resolve(window.electronAPI.getSetupTranslations?.()).catch(() => null);
+      const text = translations[data?.language] || translations.en;
+      document.documentElement.lang = data?.language || 'en';
+      document.title = text.title;
+      document.getElementById('title').textContent = text.title;
+      message.textContent = text.message;
+      retry.textContent = text.retry;
+      retry.dataset.retrying = text.retrying;
+      retry.dataset.stillOffline = text.stillOffline;
+    })();
+    document.getElementById('minimize-btn').addEventListener('click', () => window.electronAPI.minimize());
+    document.getElementById('close-btn').addEventListener('click', () => window.electronAPI.close());
+    retry.addEventListener('click', async () => {
+      retry.disabled = true;
+      message.textContent = retry.dataset.retrying || 'Trying again...';
+      const result = await window.electronAPI.retrySource();
+      if (!result?.success) {
+        retry.disabled = false;
+        message.textContent = retry.dataset.stillOffline || 'Still offline. Check your network and try again.';
+      }
+    });
+  </script>
+</body>
+</html>

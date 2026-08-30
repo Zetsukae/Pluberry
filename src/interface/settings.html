@@ -48,6 +48,9 @@
       content: ""; position: absolute; left: 0; top: 15%; height: 70%; width: 3px;
       background-color: #f78166; border-radius: 0 4px 4px 0;
     }
+    .sidebar-plugin-separator {
+      height: 1px; background-color: var(--border-color); margin: 12px 4px 10px;
+    }
     .content { flex: 1; padding: 32px; overflow-y: auto; background-color: var(--bg-canvas); min-height: 0; }
     .section { display: none; min-height: 400px; }
     .section.active { display: block; animation: fade 0.2s ease; }
@@ -210,7 +213,7 @@
 
         <div class="settings-box">
           <label data-i18n="supabaseSignIn">Connexion</label>
-          <span class="sub-label">Synchronisez vos sources avec Discord</span>
+          <span class="sub-label" data-i18n="connectSubtitle">Synchronisez vos sources avec Discord</span>
           <div id="supabaseAuthContainer" style="display: flex; gap: 10px; margin-bottom: 12px;">
             <button id="btnSupabaseLogin" class="btn-secondary" style="flex: 1;" data-i18n="supabaseSignIn">Se connecter</button>
           </div>
@@ -221,11 +224,10 @@
                 <div style="font-weight: 600; color: var(--green-btn);" data-i18n="connected">Connecté</div>
                 <div id="supabaseUserName" style="font-size: 13px; color: var(--text-main); font-weight: 600;"></div>
                 <div id="supabaseUserEmail" style="font-size: 12px; color: var(--text-muted);"></div>
+                <div id="supabaseLastSaved" style="font-size: 12px; color: var(--text-muted);"></div>
               </div>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button id="btnSaveNow" class="btn-primary" style="flex: 1; min-width: 110px; padding: 6px;" data-i18n="testSave">Tester la sauvegarde</button>
-              <button id="btnLoadNow" class="btn-primary" style="flex: 1; min-width: 110px; padding: 6px;" data-i18n="load">Charger</button>
               <button id="btnSupabaseLogout" class="btn-danger" style="flex: 1; min-width: 110px; padding: 6px;" data-i18n="supabaseLogout">Déconnexion</button>
             </div>
           </div>
@@ -298,7 +300,7 @@
         <div style="text-align: center; padding: 40px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface);">
           <img src="../assets/icon.svg" alt="Logo" style="width: 64px; margin-bottom: 16px; opacity: 0.8;">
           <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px;">Pluberry</div>
-            <div id="aboutVersion" style="color: var(--text-muted); margin-bottom: 16px;">Version 1.2.26 - Beyond Advance</div>
+            <div id="aboutVersion" style="color: var(--text-muted); margin-bottom: 16px;">Version 1.5.26 - Across Reliance</div>
           <p style="color: var(--text-main); font-size: 14px; margin-bottom: 8px; line-height: 1.6; max-width: 400px; margin-left: auto; margin-right: auto;" data-i18n="desc">
             Description app.
           </p>
@@ -417,6 +419,73 @@
         });
       }
 
+      function createSettingsPluginApi() {
+        const sidebar = document.querySelector('.sidebar');
+        const content = document.querySelector('.content');
+        const addedSections = new Set();
+
+        const activateSection = (sectionId) => {
+          document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+          document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
+          document.querySelector(`.sidebar-item[data-section="${sectionId}"]`)?.classList.add('active');
+          document.getElementById(sectionId)?.classList.add('active');
+        };
+
+        return {
+          addSection({ id, title, render } = {}) {
+            if (!id || !title || addedSections.has(id) || document.getElementById(id)) return null;
+            if (!sidebar.querySelector('.sidebar-plugin-separator')) {
+              const separator = document.createElement('div');
+              separator.className = 'sidebar-plugin-separator';
+              separator.setAttribute('aria-hidden', 'true');
+              sidebar.appendChild(separator);
+            }
+            const sidebarItem = document.createElement('div');
+            sidebarItem.className = 'sidebar-item';
+            sidebarItem.dataset.section = id;
+            sidebarItem.textContent = title;
+            sidebarItem.addEventListener('click', () => activateSection(id));
+
+            const section = document.createElement('div');
+            section.id = id;
+            section.className = 'section';
+            const heading = document.createElement('h2');
+            heading.textContent = title;
+            section.appendChild(heading);
+            const actions = content.querySelector('.actions');
+            if (actions) {
+              content.insertBefore(section, actions);
+            } else {
+              content.appendChild(section);
+            }
+            sidebar.appendChild(sidebarItem);
+            addedSections.add(id);
+
+            const sectionApi = { section, content: section, document };
+            if (typeof render === 'function') render(section, sectionApi);
+            return sectionApi;
+          },
+          getPluginSettings: (pluginName) => window.electronAPI.getPluginSettings(pluginName),
+          savePluginSettings: (pluginName, settings) => window.electronAPI.savePluginSettings(pluginName, settings),
+          getPreferences: () => window.electronAPI.getPreferences()
+        };
+      }
+
+      async function loadSettingsPlugins() {
+        if (!window.electronAPI?.getSettingsPlugins) return;
+        const pluginApi = createSettingsPluginApi();
+        window.pluberrySettings = pluginApi;
+        const plugins = await window.electronAPI.getSettingsPlugins();
+        for (const plugin of plugins || []) {
+          try {
+            const runPlugin = new Function('window', 'document', plugin.code);
+            runPlugin(window, document);
+          } catch (error) {
+            console.error(`Settings plugin ${plugin.name} failed:`, error);
+          }
+        }
+      }
+
       langSelect.addEventListener('change', (e) => {
         updateTexts(e.target.value);
       });
@@ -461,13 +530,14 @@
           const appVersion = await window.electronAPI.getAppVersion?.();
           if (appVersion) {
             const versionEl = document.getElementById('aboutVersion');
-            if (versionEl) versionEl.textContent = `Version ${appVersion} - Beyond Advance`;
+            if (versionEl) versionEl.textContent = `Version ${appVersion} - Across Reliance`;
           }
           
           // Load plugins and custom URLs with error handling.
           loadPluginsList().catch(e => console.error('Erreur chargement plugins:', e));
           loadPluginStore().catch(e => console.error('Erreur chargement store:', e));
           loadCustomUrls().catch(e => console.error('Erreur chargement URLs custom:', e));
+          loadSettingsPlugins().catch(e => console.error('Erreur chargement plugins Settings:', e));
           
         } catch(e) { 
           console.error('Erreur initialisation paramètres:', e);
@@ -477,6 +547,7 @@
           loadPluginsList().catch(e => console.error('Erreur chargement plugins:', e));
           loadPluginStore().catch(e => console.error('Erreur chargement store:', e));
           loadCustomUrls().catch(e => console.error('Erreur chargement URLs custom:', e));
+          loadSettingsPlugins().catch(e => console.error('Erreur chargement plugins Settings:', e));
         }
       } else {
         console.warn('electronAPI non disponible');
@@ -558,7 +629,12 @@
 
           if(addCustomUrlBtn) {
             addCustomUrlBtn.onclick = () => {
-              const url = customUrlInput.value.trim();
+              let url;
+              try {
+                url = normalizeCustomUrl(customUrlInput.value);
+              } catch {
+                url = '';
+              }
               
               // Validate the URL.
                   if (!url) {
@@ -603,10 +679,20 @@
         }
       }
 
+      function normalizeCustomUrl(rawUrl) {
+        let url = String(rawUrl || '').trim();
+        if (!url) return '';
+        if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(url)) url = `https://${url}`;
+
+        const parsed = new URL(url);
+        if (!parsed.pathname) parsed.pathname = '/';
+        return parsed.toString();
+      }
+
       const navItems = document.querySelectorAll('.sidebar-item');
       navItems.forEach(item => {
         item.addEventListener('click', () => {
-          navItems.forEach(i => i.classList.remove('active'));
+          document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
           document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
           item.classList.add('active');
           document.getElementById(item.getAttribute('data-section')).classList.add('active');
@@ -699,6 +785,15 @@
           console.error('Failed to save custom URLs:', e);
         }
 
+        const user = await window.electronAPI.authGetUser();
+        if (user?.data?.user) {
+          const syncResult = await saveSupabaseSources(user.data.user.id, configToSave.sourceUrl);
+          if (!syncResult?.success) {
+            showNotification(`${getTranslationValue('error', 'Erreur')}: ${syncResult?.error || 'Supabase save failed'}`, 'error');
+            return;
+          }
+          updateLastSavedDisplay(syncResult.lastSavedAt);
+        }
         const result = await window.electronAPI.saveConfig(configToSave);
         if (!result || result.success === false) {
           showNotification(getTranslationValue('errorInvalidUrl', 'The URL must start with http:// or https://'), 'error');
@@ -709,7 +804,12 @@
 
       document.getElementById('btnReset').addEventListener('click', async () => {
         const confirmed = await showConfirmDialog(getTranslationValue('confirmReset', 'Effacer toutes les données de l\'application ?'));
-        if (confirmed) await window.electronAPI.resetApp();
+        if (confirmed) {
+          const result = await window.electronAPI.resetApp();
+          if (result?.success === false) {
+            showNotification(`${getTranslationValue('error', 'Erreur')}: ${result.error}`, 'error', 6000);
+          }
+        }
       });
       document.getElementById('btnAddPlugin').addEventListener('click', async () => { await window.electronAPI.selectPluginFile(); loadPluginsList(); });
 
@@ -942,6 +1042,31 @@
         return `${maskPart(localPart)}@${maskPart(domainName)}${suffix}`;
       }
 
+      function updateLastSavedDisplay(timestamp) {
+        const lastSavedEl = document.getElementById('supabaseLastSaved');
+        if (!lastSavedEl) return;
+        const label = getTranslationValue('lastSaved', 'Last saved');
+        const never = getTranslationValue('neverSaved', 'Never');
+        if (!timestamp) {
+          lastSavedEl.textContent = `${label}: ${never}`;
+          return;
+        }
+        const date = new Date(timestamp);
+        lastSavedEl.textContent = Number.isNaN(date.getTime())
+          ? `${label}: ${never}`
+          : `${label}: ${date.toLocaleString()}`;
+      }
+
+      function getLatestSavedTimestamp(entries = []) {
+        return entries
+          .map(entry => {
+            const payload = entry?.data && typeof entry.data === 'object' ? entry.data : {};
+            return payload.timestamp || entry?.updated_at || entry?.inserted_at || '';
+          })
+          .filter(Boolean)
+          .sort((first, second) => Date.parse(second) - Date.parse(first))[0] || '';
+      }
+
       async function updateSupabaseAuthUI() {
         try {
           const user = await window.electronAPI.authGetUser();
@@ -970,6 +1095,7 @@
             }
 
             await loadSupabaseSources(userData.id);
+            await loadCustomUrls();
 
             if (!window.supabaseSyncInterval) {
               window.supabaseSyncInterval = setInterval(() => {
@@ -998,11 +1124,8 @@
           }
           if (result.data && result.data.length > 0) {
             console.log('Loaded sources from Supabase:', result.data);
+            updateLastSavedDisplay(getLatestSavedTimestamp(result.data));
             if (window.electronAPI.getPreferences) {
-              const prefs = await window.electronAPI.getPreferences();
-              if (!prefs.supabaseSources) prefs.supabaseSources = [];
-
-              const restoredSources = [];
               for (const entry of result.data) {
                 const payload = entry.data || {};
                 const sourceUrl = payload.data || payload.url || payload.sourceUrl;
@@ -1010,37 +1133,46 @@
                   const restoreResult = await window.electronAPI.restoreCookiesForUrl(sourceUrl, payload.cookies);
                   console.log('Restored cookies for', sourceUrl, restoreResult);
                 }
-                restoredSources.push(payload);
               }
-
-              prefs.supabaseSources = restoredSources;
-              await window.electronAPI.saveConfig(prefs);
             }
+          } else {
+            updateLastSavedDisplay('');
           }
         } catch (e) {
           console.error('Load sources error:', e);
         }
       }
 
-      async function saveSupabaseSources(userId) {
+      async function saveSupabaseSources(userId, currentSourceUrl = '') {
         try {
           const prefs = await window.electronAPI.getPreferences();
-          const customUrls = prefs.customUrls || [];
+          const customUrls = savedUrlsGlobal || [];
+          const existingResult = await window.electronAPI.loadSources(userId);
+          if (existingResult?.error) throw existingResult.error;
+          const existingByUrl = new Map((existingResult?.data || []).map(entry => {
+            const payload = entry?.data && typeof entry.data === 'object' ? entry.data : {};
+            return [payload.sourceUrl || payload.data || payload.url, entry];
+          }));
           
           // Save each source.
           for (const url of customUrls) {
             const cookies = await window.electronAPI.collectCookiesForUrl(url);
-            await window.electronAPI.saveSource(userId, {
+            const result = await window.electronAPI.saveSource(userId, {
+              id: existingByUrl.get(url)?.id,
               name: url,
               data: url,
               timestamp: new Date().toISOString(),
               sourceUrl: url,
+              isCurrent: url === (currentSourceUrl || prefs.sourceUrl),
               cookies
             });
+            if (result?.error) throw result.error;
           }
           console.log('Supabase sync completed at', new Date().toLocaleString());
+          return { success: true, lastSavedAt: new Date().toISOString() };
         } catch (e) {
           console.error('Save sources error:', e);
+          return { success: false, error: e.message || String(e) };
         }
       }
 
@@ -1108,64 +1240,6 @@
           await updateSupabaseAuthUI();
         } catch (e) {
           showNotification(`${getTranslationValue('error', 'Erreur')}: ${e.message}`, 'error');
-        }
-      });
-
-      // Manual save.
-      document.getElementById('btnSaveNow')?.addEventListener('click', async () => {
-        try {
-          const user = await window.electronAPI.authGetUser();
-          if (!user?.data?.user) {
-            showNotification(getTranslationValue('connectRequired', 'Vous devez être connecté'), 'error');
-            return;
-          }
-
-          console.log('Manual save triggered...');
-          const button = document.getElementById('btnSaveNow');
-          button.disabled = true;
-          button.textContent = getTranslationValue('saveInProgress', 'Sauvegarde en cours');
-
-          await saveSupabaseSources(user.data.user.id);
-
-          button.textContent = getTranslationValue('saved', 'Sauvegardé');
-          setTimeout(() => {
-            button.disabled = false;
-            button.textContent = getTranslationValue('testSave', 'Tester la sauvegarde');
-          }, 2000);
-        } catch (e) {
-          console.error('Save error:', e);
-          showNotification(`${getTranslationValue('error', 'Erreur')}: ${e.message}`, 'error');
-          const button = document.getElementById('btnSaveNow');
-          button.disabled = false;
-          button.textContent = getTranslationValue('testSave', 'Tester la sauvegarde');
-        }
-      });
-
-      // Manual load.
-      document.getElementById('btnLoadNow')?.addEventListener('click', async () => {
-        try {
-          const user = await window.electronAPI.authGetUser();
-          if (!user?.data?.user) {
-            showNotification(getTranslationValue('connectRequired', 'Vous devez être connecté'), 'error');
-            return;
-          }
-          
-          console.log('Manual load triggered...');
-          document.getElementById('btnLoadNow').disabled = true;
-          document.getElementById('btnLoadNow').textContent = getTranslationValue('loadingInProgress', 'Chargement en cours');
-          
-          await loadSupabaseSources(user.data.user.id);
-          
-          document.getElementById('btnLoadNow').textContent = getTranslationValue('loaded', 'Chargé');
-          setTimeout(() => {
-            document.getElementById('btnLoadNow').disabled = false;
-            document.getElementById('btnLoadNow').textContent = getTranslationValue('load', 'Charger');
-          }, 2000);
-        } catch (e) {
-          console.error('Load error:', e);
-          showNotification(`${getTranslationValue('error', 'Erreur')}: ${e.message}`, 'error');
-          document.getElementById('btnLoadNow').disabled = false;
-          document.getElementById('btnLoadNow').textContent = getTranslationValue('load', 'Charger');
         }
       });
 

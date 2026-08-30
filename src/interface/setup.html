@@ -104,6 +104,13 @@
     }
     .btn-launch:hover { background-color: #2ea043; }
 
+    .btn-discord {
+      width: 100%; padding: 10px; background-color: #5865f2; color: white;
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+      font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 10px;
+    }
+    .btn-discord:hover { background-color: #4752c4; }
+
     .shake { animation: shake 0.5s; }
     @keyframes shake {
       0% { transform: translateX(0); } 25% { transform: translateX(-5px); }
@@ -171,15 +178,16 @@
       <div id="savedUrls" class="saved-urls"></div>
     </div>
 
+    <button id="discordLoginBtn" class="btn-discord">Login With Discord</button>
     <button id="launchBtn" class="btn-launch">Lancer Pluberry</button>
     <div id="setupVersion" style="margin-top: 16px; font-size: 12px; color: var(--text-muted);">Version ?</div>
 
   <script>
-    // Translations object loaded at startup
+    // Translation data loaded during startup.
     let i18n = {};
     let currentLanguage = 'en';
 
-    // Load translations on startup
+    // Load translations during startup.
     async function initializeTranslations() {
       try {
         if (window.electronAPI && window.electronAPI.getSetupTranslations) {
@@ -187,14 +195,14 @@
           currentLanguage = data.language || 'en';
           i18n = data.translations || {};
           
-          // Update HTML lang attribute
+          // Keep the document language synchronized with the selected locale.
           document.documentElement.lang = currentLanguage;
           document.getElementById('htmlRoot').lang = currentLanguage;
           
-          // Update page title
+          // Update the page title.
           document.title = i18n.setup?.initialTitle || 'Setup';
           
-          // Update all UI text
+          // Update visible setup text.
           updateUIText();
           updateSelectOptions();
           const appVersion = await window.electronAPI.getAppVersion?.();
@@ -225,6 +233,7 @@
       document.getElementById('popularLabel').textContent = t('popularLabel', 'Or choose from the most popular sources!');
       document.getElementById('viewLinkLabel').textContent = t('viewLink', 'View:');
       document.getElementById('launchBtn').textContent = t('launchPluberry', 'Launch Pluberry');
+      document.getElementById('discordLoginBtn').textContent = t('loginWithDiscord', 'Login With Discord');
     }
 
     function updateSelectOptions() {
@@ -245,13 +254,47 @@
       });
     }
 
-    // Initialize on load
+    // Initialize the setup screen.
     initializeTranslations();
 
     const launchBtn = document.getElementById('launchBtn');
     const customUrlInput = document.getElementById('customUrlInput');
     const addCustomUrlBtn = document.getElementById('addCustomUrlBtn');
     const savedUrlsDiv = document.getElementById('savedUrls');
+    const discordLoginBtn = document.getElementById('discordLoginBtn');
+
+    async function restoreAfterLogin() {
+      if (!window.electronAPI?.restoreSyncedSources) return;
+      discordLoginBtn.disabled = true;
+      if (savedCustomUrls.length > 0 && window.electronAPI.syncCustomUrls) {
+        const syncResult = await window.electronAPI.syncCustomUrls(savedCustomUrls);
+        if (!syncResult?.success) {
+          showError(syncResult?.error || t('errorSync', 'Unable to save sources to Supabase'));
+          discordLoginBtn.disabled = false;
+          return;
+        }
+      }
+      const result = await window.electronAPI.restoreSyncedSources();
+      if (!result?.success) {
+        showError(t('errorNoRemoteSource', 'No source was found in your Supabase account'));
+        discordLoginBtn.disabled = false;
+      }
+    }
+
+    discordLoginBtn.addEventListener('click', async () => {
+      discordLoginBtn.disabled = true;
+      try {
+        const result = await window.electronAPI.authSignInWithDiscord();
+        if (result?.error) discordLoginBtn.disabled = false;
+      } catch (error) {
+        console.error('Discord login error:', error);
+        discordLoginBtn.disabled = false;
+      }
+    });
+
+    window.addEventListener('supabase-auth-state-changed', async (event) => {
+      if (event.detail?.session) await restoreAfterLogin();
+    });
 
     let savedCustomUrls = [];
     if (window.electronAPI && window.electronAPI.getCustomUrls) {
@@ -451,7 +494,7 @@
           showError(t('errorInvalidUrl', 'The URL must start with http:// or https://'));
           return;
         }
-        // success - app will navigate or relaunch as necessary
+        // The main process handles navigation or relaunch after saving.
       } else {
         showError(t('errorNoSelection'));
       }

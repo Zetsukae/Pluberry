@@ -2,7 +2,7 @@
 
 > **A centralized, secure, and immersive streaming experience.**
 
-![Version](https://img.shields.io/badge/version-1.3.26-blue?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.5.26-blue?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20MacOS-lightgrey?style=flat-square)
 ![Status](https://img.shields.io/badge/status-Stable-success?style=flat-square)
@@ -91,8 +91,6 @@ npm run build:mac
 ```
 Pluberry/
 ├── package.json              # Project scripts and Electron dependencies
-├── pluberry-supabase-auth.json
-├── launcher/                 # App launcher and configuration files
 ├── src/
 │   ├── main.js               # Main Electron process entry point
 │   ├── preload.js            # Secure renderer bridge
@@ -107,13 +105,16 @@ Pluberry/
 │   │   └── README.md         # Backend setup guide
 │   ├── interface/
 │   │   ├── settings.html     # Settings UI
-│   │   └── setup.html        # First-run setup UI
+│   │   ├── setup.html         # First-run setup UI
+│   │   └── offline.html       # Offline connection screen
 │   └── main/
 │       ├── app-config.js     # Shared resource-path helpers
-│       └── oauth-helpers.js # OAuth callback helpers for loopback auth
+│       ├── oauth-helpers.js   # OAuth callback helpers for loopback auth
+│       └── source-sync.js     # Source restoration and merge helpers
 ├── test/
-│   └── oauth.test.js        # Automated regression tests
-└── dist/                     # Build outputs (generated during packaging)
+│   ├── oauth.test.js          # OAuth regression tests
+│   └── source-sync.test.js    # Source synchronization tests
+└── dist/                     # Build output (generated during packaging)
 ```
 
 ### What's New
@@ -122,6 +123,14 @@ Pluberry/
 * Separate environment configuration via `env-loader.js`
 * Multi-platform build output in `dist/`
 * Cleaner structure separating core logic, UI, and backend integration
+
+## Configuration and secrets
+
+Do not commit `.env` files, Supabase auth storage, build output, or dependency folders. These paths are ignored by `.gitignore`. Copy the required Supabase values into `src/backend/.env` locally; see [the backend setup guide](src/backend/README.md).
+
+## Plugin development
+
+Plugins are JavaScript files with application privileges. Review every plugin before installing it. Enabled plugins can add a Settings section through the documented `window.pluberrySettings` API in [the backend guide](src/backend/README.md).
 
 ---
 

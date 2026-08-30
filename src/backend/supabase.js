@@ -449,6 +449,13 @@ async function loadSources(userId) {
   return await supabase.from('sources').select('*').eq('user_id', userId);
 }
 
+async function deleteSources(userId) {
+  if (!userId) return { error: new Error('No userId provided') };
+  const loggedIn = await isUserLoggedIn();
+  if (!loggedIn) return { error: new Error('Please log in to delete sources') };
+  return await supabase.from('sources').delete().eq('user_id', userId).select('id');
+}
+
 module.exports = {
   supabase,
   signInWithGitHub,
@@ -460,5 +467,6 @@ module.exports = {
   restoreSession,
   saveSource,
   loadSources,
+  deleteSources,
   clearPersistedAuth,
 };
