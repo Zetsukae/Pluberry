@@ -91,6 +91,30 @@ function showToast() {
   }, 3000)
 }
 
+function setupThemeToggle() {
+  const toggle = document.getElementById("themeToggle")
+  if (!toggle) return
+
+  const savedTheme = localStorage.getItem("pluberry-theme")
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+
+  function applyTheme(isDark) {
+    document.body.classList.toggle("dark-mode", isDark)
+    toggle.setAttribute("aria-pressed", String(isDark))
+    toggle.setAttribute("aria-label", isDark ? "Activer le mode clair" : "Activer le mode sombre")
+    toggle.setAttribute("title", isDark ? "Activer le mode clair" : "Activer le mode sombre")
+  }
+
+  applyTheme(savedTheme ? savedTheme === "dark" : prefersDark)
+  toggle.addEventListener("click", () => {
+    const isDark = !document.body.classList.contains("dark-mode")
+    applyTheme(isDark)
+    localStorage.setItem("pluberry-theme", isDark ? "dark" : "light")
+  })
+}
+
+document.addEventListener("DOMContentLoaded", setupThemeToggle)
+
 // Add smooth scroll behavior
 document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
   anchor.addEventListener("click", function (e) {

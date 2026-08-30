@@ -30,6 +30,25 @@ function buildDownloadUrls(version) {
     };
 }
 
+function buildDownloadUrlsFromRelease(release, version) {
+    const urls = buildDownloadUrls(version);
+    const releaseUrl = release.html_url || urls.other;
+
+    urls.other = releaseUrl;
+    urls.windows = releaseUrl;
+    urls.linux = releaseUrl;
+    urls.macos = releaseUrl;
+
+    (release.assets || []).forEach((asset) => {
+        const assetName = asset.name.toLowerCase();
+        if (assetName.endsWith('.exe')) urls.windows = asset.browser_download_url;
+        if (assetName.endsWith('.appimage')) urls.linux = asset.browser_download_url;
+        if (assetName.endsWith('.dmg')) urls.macos = asset.browser_download_url;
+    });
+
+    return urls;
+}
+
 function setVersionInfo(tagName, version) {
     const versionTag = document.getElementById('versionTag');
     const versionText = document.getElementById('versionText');
@@ -74,7 +93,7 @@ async function loadLatestStableRelease() {
         }
 
         const displayTag = getDisplayTag(release.tag_name, version);
-        Object.assign(DOWNLOAD_URLS, buildDownloadUrls(version));
+        Object.assign(DOWNLOAD_URLS, buildDownloadUrlsFromRelease(release, version));
         setVersionInfo(displayTag, version);
     } catch (error) {
         console.warn('Unable to load latest stable release, using fallback values:', error);
@@ -184,8 +203,33 @@ function createBubble(container) {
     setTimeout(() => { if (bubble.parentNode) { bubble.parentNode.removeChild(bubble) } }, (duration + 6) * 1000)
 }
 
+function setupThemeToggle() {
+    const toggle = document.getElementById('themeToggle');
+    if (!toggle) return;
+
+    const savedTheme = localStorage.getItem('pluberry-theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    function applyTheme(isDark) {
+        document.body.classList.toggle('dark-mode', isDark);
+        toggle.setAttribute('aria-pressed', String(isDark));
+        toggle.setAttribute('aria-label', isDark ? 'Activer le mode clair' : 'Activer le mode sombre');
+        toggle.setAttribute('title', isDark ? 'Activer le mode clair' : 'Activer le mode sombre');
+    }
+
+    applyTheme(savedTheme ? savedTheme === 'dark' : prefersDark);
+    toggle.addEventListener('click', () => {
+        const isDark = !document.body.classList.contains('dark-mode');
+        applyTheme(isDark);
+        localStorage.setItem('pluberry-theme', isDark ? 'dark' : 'light');
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     createBubbles();
+    setupThemeToggle();
+    Object.assign(DOWNLOAD_URLS, buildDownloadUrls(FALLBACK_VERSION));
+    updateDownloadLinks();
     loadLatestStableRelease();
 
     // Smooth scroll

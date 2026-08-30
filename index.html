@@ -12,6 +12,16 @@
 
     <header class="header">
         <div class="header-content">
+            <button id="themeToggle" class="theme-toggle" type="button" aria-label="Activer le mode sombre" title="Activer le mode sombre" aria-pressed="false">
+                <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 2V4M12 20V22M4.93 4.93L6.34 6.34M17.66 17.66L19.07 19.07M2 12H4M20 12H22M4.93 19.07L6.34 17.66M17.66 6.34L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3C10.54 4.02 10.15 5.24 10.15 6.55A6.3 6.3 0 0 0 16.45 12.85C17.76 12.85 18.98 12.46 20 11.79C20.33 12.1 20.66 12.44 21 12.79Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="theme-toggle-label">Theme</span>
+            </button>
             <nav class="nav">
                 <a href="#features" class="nav-link">Features</a>
                 <a href="#download" class="nav-link">Download</a>
@@ -36,7 +46,7 @@
             <p class="hero-subtitle">The free and open source streaming application.<br>Watch your favorite content with ease.</p>
             
             <div class="hero-actions">
-                <a href="#" id="heroDownloadBtn" target="_blank" class="btn btn-primary btn-large">
+                <a href="#" id="heroDownloadBtn" class="btn btn-primary btn-large">
                     <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -55,7 +65,7 @@
             </div>
 
             <div class="hero-version">
-                <span id="versionTag" class="version-tag" style="border-color: var(--success); color: var(--success); background: rgba(35, 134, 54, 0.1);">Loading latest release…</span>
+                <span id="versionTag" class="version-tag">Loading latest release...</span>
                 <span id="versionText" class="version-text">Fetching the latest stable release…</span>
             </div>
         </section>
@@ -105,7 +115,7 @@
                         </svg>
                     </div>
                     <h3 class="feature-title">Multi-Plateform</h3>
-                    <p class="feature-description">Available on Windows and Linux.</p>
+                    <p class="feature-description">Available on Windows, Linux and macOS.</p>
                 </div>
 
                 <div class="feature-card">
@@ -138,7 +148,7 @@
                         <h3 id="downloadTitle" class="download-title">Pluberry v1.2.26</h3>
                         <p id="downloadSubtitle" class="download-subtitle">latest stable version</p>
                     </div>
-                    <span class="download-badge" style="background: var(--success);">STABLE</span>
+                    <span class="download-badge">STABLE</span>
                 </div>
                 <div class="download-content">
                     <p class="download-description">Download the latest version of Pluberry and enjoy a free and open source streaming experience.</p>
@@ -156,10 +166,20 @@
                             </svg>
                             <span>Linux</span>
                         </div>
+                        <div class="platform-item">
+                            <svg class="platform-icon" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" stroke="currentColor">
+                                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                                <g id="SVGRepo_iconCarrier">
+                                    <path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.09997 22C7.78997 22.05 6.79997 20.68 5.95997 19.47C4.24997 17 2.93997 12.45 4.69997 9.39C5.56997 7.87 7.12997 6.91 8.81997 6.88C10.1 6.86 11.32 7.75 12.11 7.75C12.89 7.75 14.37 6.68 15.92 6.84C16.57 6.87 18.39 7.1 19.56 8.82C19.47 8.88 17.39 10.1 17.41 12.63C17.44 15.65 20.06 16.66 20.09 16.67C20.06 16.74 19.67 18.11 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z"></path>
+                                </g>
+                            </svg>
+                            <span>macOS</span>
+                        </div>
                     </div>
                 </div>
                 <div class="download-actions">
-                    <a href="#" id="mainDownloadBtn" target="_blank" class="btn btn-primary">
+                    <a href="#" id="mainDownloadBtn" class="btn btn-primary">
                         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
